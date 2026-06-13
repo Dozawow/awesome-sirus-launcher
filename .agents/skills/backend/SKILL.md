@@ -1,6 +1,6 @@
 ---
 name: backend
-description: Backend implementation rules for the Awesome Sirus Launcher Electron main process and preload layer. Use when editing TypeScript backend modules, IPC contracts, file downloads, MD5 client patch checks, WTF backups, FPS patch installation, GitHub addon installation, settings persistence, logging, or game launch behavior.
+description: Backend implementation rules for the Awesome Sirus Launcher Electron main process and preload layer. Use when editing TypeScript backend modules, IPC contracts, file downloads, MD5 client patch checks, WTF backups, FPS patch installation, GitHub addon installation, account profile storage, Config.wtf account switching, settings persistence, logging, or game launch behavior.
 ---
 
 # Sirus Launcher Backend
@@ -14,6 +14,7 @@ Use this skill to keep launcher backend code safe, testable, and consistent. Tre
 Prefer these module boundaries:
 
 - `settings`: read/write launcher config and selected WoW path.
+- `accounts`: store local account profiles, protect saved passwords, and update `WTF/Config.wtf` before launch.
 - `wow-client`: validate WoW directory, derive `WTF`, `Data/ruRU`, `Interface/AddOns`, and `Wow.exe` paths.
 - `downloads`: queued downloads, temporary files, progress, retry, cancellation.
 - `patches`: fetch patch manifests, normalize paths, stream MD5 checks, update mismatched files.
@@ -41,6 +42,7 @@ Keep shared DTOs and channel names in `shared` so main, preload, and renderer co
 - Download to a temporary file first, validate it, then move into place.
 - Check archive entries before extraction and reject paths that escape the target directory.
 - Before restoring `WTF`, create a safety backup of the current folder.
+- Before editing `WTF/Config.wtf`, create a quick safety backup and change only the required account lines.
 - Stream large files for MD5 and zip operations.
 
 ## Jobs And Progress
@@ -68,6 +70,8 @@ Emit progress events from main to renderer. Keep cancellation cooperative and ma
 - Download GitHub addons as repository source zip files, not release assets for the MVP.
 - After unpacking a GitHub source zip, do not install the top folder like `{repo}-{branch}`. Find folders containing `.toc` and move those addon folders into `<wowPath>/Interface/AddOns`.
 - Back up `<wowPath>/WTF` into timestamped zip archives.
+- For multi-account launch, update `<wowPath>/WTF/Config.wtf` with `SET accountName "login"` and `SET readTerminationWithoutNotice "password"` immediately before launching the game.
+- Never log saved passwords or write them to plaintext launcher logs/settings. Prefer OS-protected storage for secrets.
 - Launch only the validated WoW executable, not arbitrary user-provided commands.
 
 ## Testing

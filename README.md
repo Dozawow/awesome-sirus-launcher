@@ -1,6 +1,6 @@
 # awesome-sirus-launcher
 
-Планируемый Electron/Vue лаунчер для Sirus WoW: аддоны с GitHub, проверка клиента по MD5, FPS-патч, бекапы `WTF` и запуск игры.
+Планируемый Electron/Vue лаунчер для Sirus WoW: аддоны с GitHub, проверка клиента по MD5, FPS-патч, бекапы `WTF` и запуск игры, автообновление WA.
 
 ## Документы
 
