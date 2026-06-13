@@ -1,13 +1,13 @@
 ---
 name: backend
-description: Backend implementation rules for the Awesome Sirus Launcher Electron main process and preload layer. Use when editing TypeScript backend modules, IPC contracts, file downloads, MD5 client patch checks, WTF backups, FPS patch installation, GitHub addon installation, account profile storage, Config.wtf account switching, settings persistence, logging, or game launch behavior.
+description: Backend implementation rules for the Awesome Sirus Launcher Electron TypeScript backend. Use when editing TypeScript core modules, Electron main/preload adapters, IPC contracts, file downloads, MD5 client patch checks, WTF backups, FPS patch installation, GitHub addon installation, account profile storage, Config.wtf account switching, settings persistence, logging, or game launch behavior.
 ---
 
 # Sirus Launcher Backend
 
 ## Overview
 
-Use this skill to keep launcher backend code safe, testable, and consistent. Treat Electron main process code as the only place allowed to touch the filesystem, network downloads, archives, process launch, and persistent settings.
+Use this skill to keep launcher backend code safe, testable, and consistent. Keep domain logic in portable TypeScript `core` modules, and treat Electron main/preload as thin shell adapters around that core.
 
 ## Architecture
 
@@ -24,7 +24,7 @@ Prefer these module boundaries:
 - `launcher`: start WoW without blocking the UI.
 - `logging`: write structured logs and forward user-facing events.
 
-Keep shared DTOs and channel names in `shared` so main, preload, and renderer compile against the same contract.
+Keep shared DTOs and channel names in `shared` so main, preload, renderer, and tests compile against the same contract.
 
 ## Electron Security
 
@@ -34,6 +34,14 @@ Keep shared DTOs and channel names in `shared` so main, preload, and renderer co
 - Validate all renderer inputs in IPC handlers.
 - Return plain DTOs, not Node objects, streams, or internal classes.
 - Never expose arbitrary filesystem operations to renderer.
+
+## Portability
+
+- Keep `core` free of `electron` imports.
+- Put filesystem, downloader, archive, process launch, and secret storage behind interfaces.
+- Keep Electron-specific code in adapters that call `core`.
+- Add tests for `core` behavior before wiring it to IPC.
+- Use fake adapters in tests so future migration to Tauri or another shell only replaces adapters.
 
 ## File Operations
 
@@ -78,5 +86,6 @@ Emit progress events from main to renderer. Keep cancellation cooperative and ma
 
 - Unit test path derivation, manifest parsing, fallback source selection, and MD5 comparison.
 - Integration test backup/restore and addon extraction using temporary directories.
+- Add adapter contract tests for filesystem, downloader, archive extraction, process launch, and secret storage.
 - Mock network calls; do not depend on live patch servers in unit tests.
 - Add regression tests for any bug involving data loss, path traversal, or failed validation.

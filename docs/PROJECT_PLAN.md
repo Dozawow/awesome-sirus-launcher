@@ -27,28 +27,30 @@
 - state: `Pinia`;
 - UI: сначала свой минимальный дизайн на CSS/Tailwind, UI-kit добавлять только если он реально ускорит работу;
 - упаковка: `electron-builder` или связка, которую рекомендует выбранный шаблон `electron-vite`;
-- тесты: `Vitest` для модулей, `Playwright` для UI/e2e.
+- тесты: `Vitest` для core/backend/frontend-модулей, `Playwright` для UI/e2e.
 - CI/CD: GitHub Actions для проверки, сборки и будущего релизного autobuild.
 
 Почему так:
 
-- Electron дает зрелую экосистему для файловой системы, процессов, скачивания, автообновления и Windows-дистрибуции.
-- `electron-vite` дает быстрый dev loop и поддерживает TypeScript, Vue и Electron preload/main/renderer из коробки.
+- Electron позволяет писать backend и frontend на TypeScript, что ускоряет разработку и уменьшает переключение контекста.
+- Node.js-экосистема дает готовые библиотеки для файлов, архивов, скачивания, keychain/credential storage и Windows-сборки.
+- `electron-vite` дает быстрый dev loop и поддерживает TypeScript, Vue и Electron main/preload/renderer из коробки.
 - Vue 3 хорошо подходит под компактный лаунчер: настройки, списки аддонов, прогресс, модальные окна, журнал.
 
 Альтернатива:
 
 - `Tauri 2` + Vue 3.
-- Плюсы: потенциально меньше вес и потребление памяти.
-- Минусы: backend придется писать на Rust, файловые и сетевые операции надо проводить через Tauri commands/plugins, экосистема под game launcher сценарии обычно менее прямолинейна.
+- Плюсы: меньше вес и потребление памяти.
+- Минусы: backend надо писать на Rust, а это замедлит текущую разработку.
 
-Решение на старте: использовать Electron + Vue 3 + TypeScript. Tauri рассмотреть позже, если размер приложения станет важнее скорости разработки.
+Решение на старте: использовать Electron + Vue 3 + TypeScript. Чтобы позже можно было быстро переехать на Tauri или другой shell, доменную логику держать отдельно от Electron IPC и покрывать тестами.
 
 Источники для выбора стека:
 
+- Electron security: https://electronjs.org/docs/latest/tutorial/security
 - Electron context isolation: https://electronjs.org/docs/latest/tutorial/context-isolation
 - electron-vite: https://electron-vite.org/
-- Tauri 2: https://v2.tauri.app/
+- Tauri 2, для будущего сравнения: https://v2.tauri.app/
 
 ## 3. Архитектура модулей
 
@@ -75,7 +77,7 @@
 Единственная безопасная граница между UI и системным backend:
 
 - экспортирует typed API через `contextBridge`;
-- не отдает в renderer прямой доступ к Node.js;
+- не отдает renderer прямой доступ к Node.js;
 - валидирует входные данные до IPC;
 - возвращает DTO, а не внутренние классы.
 
@@ -182,7 +184,7 @@
 - добавить `package.json` и синхронизировать `package.json.version` с `VERSION`;
 - настроить ESLint, Prettier, Vitest;
 - настроить базовые alias;
-- завести структуру `main`, `preload`, `renderer`, `shared`;
+- завести структуру `main`, `preload`, `renderer`, `shared`, `core`;
 - добавить CI-скрипты локальной проверки;
 - подключить GitHub Actions build workflow;
 - завести `CHANGELOG.md` и правило обязательного обновления changelog агентами;
@@ -319,7 +321,31 @@
 - подписать релиз, если будет сертификат;
 - подготовить страницу релизов и инструкцию установки.
 
-## 6. Версионирование, changelog и autobuild
+## 6. Портируемость и тесты для будущего переписывания
+
+Цель: если позже решим перейти с Electron на Tauri или другой desktop shell, переписывать только shell-адаптеры, а не бизнес-логику.
+
+Правила архитектуры:
+
+- доменную логику держать в `core`, без импорта `electron`, `BrowserWindow`, `ipcMain`, `dialog`;
+- `main` вызывает `core` через тонкие adapters/services;
+- `preload` только пробрасывает typed API, не содержит бизнес-логики;
+- renderer вызывает backend через typed client, а не напрямую через разрозненные IPC-строки;
+- файловую систему, сеть, архивы, keychain и запуск процесса прятать за interfaces;
+- для каждого внешнего адаптера иметь mock/fake implementation в тестах;
+- DTO и ошибки хранить в `shared`, чтобы их можно было переиспользовать при миграции.
+
+Обязательные тесты:
+
+- unit tests для `core`: пути WoW, MD5 manifest, backup plan, addon install plan, `Config.wtf` patching, fallback источников;
+- adapter contract tests: filesystem, downloader, archive extractor, process launcher, secret storage;
+- integration tests на временных директориях для backup/restore, addon zip install, FPS patch install, `Config.wtf` update;
+- renderer tests для stores/composables без привязки к Electron;
+- e2e smoke tests через Playwright только для сквозных пользовательских сценариев.
+
+Минимальное правило покрытия: новая функция сначала получает тестируемый `core`-модуль, потом Electron adapter и UI.
+
+## 7. Версионирование, changelog и autobuild
 
 Правила:
 
@@ -335,9 +361,9 @@ GitHub Actions:
 - PR должен запускать проверку, тесты и обычную сборку, когда появится Electron-проект.
 - Push в `main`/`master` с изменением `VERSION` должен запускать релизную сборку.
 - До появления `package.json` workflow должен пропускать Node/Electron шаги, чтобы плановая инфраструктура не ломала репозиторий.
-- После появления `electron-builder` workflow должен сохранять Windows installer/portable как artifacts.
+- После появления packaging config workflow должен сохранять Windows installer/portable как artifacts.
 
-## 7. Минимальный MVP
+## 8. Минимальный MVP
 
 Чтобы быстро получить полезный результат:
 
@@ -351,7 +377,7 @@ GitHub Actions:
 8. Потом GitHub-аддоны.
 9. Потом автообновление WeakAuras.
 
-## 8. Риски
+## 9. Риски
 
 - У API патчей может быть нестабильная или недокументированная схема.
 - HTTP fallback для FPS-патча не шифруется, его стоит использовать только как резервный источник.
@@ -360,9 +386,10 @@ GitHub Actions:
 - Восстановление `WTF` может перезаписать настройки пользователя, поэтому нужен safety backup.
 - Сохранение паролей локально несет риск компрометации; нужен защищенный storage и запрет вывода секретов в логи.
 - Неправильная правка `Config.wtf` может сломать пользовательские настройки, поэтому нужен backup и точечная замена только нужных строк.
+- Если смешать Electron API с доменной логикой, будущий переход на Tauri станет дорогим; это предотвращается core/adapters архитектурой и тестами.
 - Autobuild не будет выпускать полноценные артефакты, пока не появятся `package.json`, build script и packaging config.
 
-## 9. Решения, которые надо принять позже
+## 10. Решения, которые надо принять позже
 
 - Нужна ли авторизация GitHub token для приватных/частых запросов.
 - Где хранить каталог аддонов: в репозитории, remote JSON или пользовательский список.

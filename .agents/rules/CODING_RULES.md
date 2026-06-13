@@ -8,9 +8,9 @@
 - При подготовке коммита агент должен использовать `.agents/skills/commit/SKILL.md` и описывать фактические изменения, а не только исходную просьбу.
 - Версию релиза хранить в `VERSION`; после появления `package.json` синхронизировать `VERSION` и `package.json.version`.
 - Писать на TypeScript везде, где это возможно.
-- Держать типы общих DTO в `shared`, чтобы main/preload/renderer не расходились.
+- Держать типы общих DTO в `shared`, чтобы main/preload/renderer/core не расходились.
 - Не смешивать UI, IPC и файловую систему в одном модуле.
-- Любую операцию с файлами делать через main process.
+- Любую операцию с файлами делать через Electron main adapter, который вызывает тестируемый `core`.
 - Renderer не должен иметь прямой доступ к Node.js API.
 - Все пути хранить как абсолютные, но в логах и UI показывать аккуратно.
 - Для путей использовать `path.join`, `path.resolve`, `path.normalize`, не собирать пути строками.
@@ -46,6 +46,8 @@
 ## Тестирование
 
 - Unit tests: чистые модули путей, MD5, парсинг API, выбор fallback-источника.
+- Portability tests: `core` не импортирует Electron API и работает через interfaces/adapters.
+- Adapter contract tests: filesystem, downloader, archive extractor, process launcher, secret storage.
 - Integration tests: backup/restore на временной директории.
 - UI tests: старт приложения, выбор пути, отображение статуса.
 - Для опасных файловых операций тесты должны использовать временные директории.
