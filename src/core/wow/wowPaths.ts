@@ -9,7 +9,7 @@ export function getWowPaths(wowPath: string): Omit<WowPathValidation, 'valid' | 
 
 	return {
 		wowPath: root,
-		executablePath: join(root, 'Wow.exe'),
+		executablePath: join(root, 'run.exe'),
 		dataPath: join(root, 'Data'),
 		localeDataPath: join(root, 'Data', 'ruRU'),
 		interfacePath,
@@ -22,7 +22,7 @@ export function getWowPaths(wowPath: string): Omit<WowPathValidation, 'valid' | 
 export function validateWowPath(wowPath: string): WowPathValidation {
 	const paths = getWowPaths(wowPath)
 	const required = [
-		['Wow.exe', paths.executablePath],
+		['run.exe', paths.executablePath],
 		['Data', paths.dataPath],
 		['Interface', paths.interfacePath],
 		['WTF', paths.wtfPath]

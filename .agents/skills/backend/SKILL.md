@@ -16,7 +16,7 @@ Prefer these module boundaries:
 - `settings`: read/write launcher config and selected WoW path.
 - `secrets`: store GitHub token and account passwords through OS-protected credential storage.
 - `accounts`: store local account profiles, protect saved passwords, and update `WTF/Config.wtf` before launch.
-- `wow-client`: validate WoW directory, derive `WTF`, `Data/ruRU`, `Interface/AddOns`, and `Wow.exe` paths.
+- `wow-client`: validate WoW directory, derive `WTF`, `Data/ruRU`, `Interface/AddOns`, and `run.exe` paths.
 - `downloads`: queued downloads, temporary files, progress, retry, cancellation.
 - `patches`: fetch patch manifests, normalize paths, stream MD5 checks, update mismatched files.
 - `fps-patch`: install `patch-ruRU-[.mpq` into `Data/ruRU`.

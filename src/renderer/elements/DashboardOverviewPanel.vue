@@ -5,9 +5,11 @@ import type {
 	WowPathValidation,
 	WtfBackupSummary
 } from '@shared/contracts'
+import BaseButton from '@renderer/components/BaseButton.vue'
 import BasePanel from '@renderer/components/BasePanel.vue'
 import StatusBadge from '@renderer/components/StatusBadge.vue'
 import { useLocale } from '@renderer/composables/useLocale'
+import { Archive, Download, FolderOpen, Play, Puzzle, SearchCheck, Trash2 } from '@lucide/vue'
 
 const props = defineProps<{
 	wowValidation: WowPathValidation | null
@@ -15,6 +17,20 @@ const props = defineProps<{
 	clientCheckResult: ClientCheckResult | null
 	latestBackup: WtfBackupSummary | null
 	addonsUpdated: boolean | null
+	checkingClient: boolean
+	installingFpsPatch: boolean
+	creatingBackup: boolean
+	launchingGame: boolean
+}>()
+
+defineEmits<{
+	selectWowPath: []
+	launchGame: []
+	installFpsPatch: []
+	deleteFpsPatch: []
+	openAddons: []
+	checkClient: []
+	createBackup: []
 }>()
 
 const { t } = useLocale()
@@ -65,9 +81,24 @@ function formatBackupDate(backup: WtfBackupSummary | null): string {
 				<strong>{{ wowValidation?.valid ? t('wow.valid') : t('wow.invalid') }}</strong>
 				<StatusBadge :tone="wowValidation?.valid ? 'ok' : 'warning'">
 					{{
-						wowValidation?.valid ? t('dashboard.ready') : t('dashboard.actionRequired')
+						wowValidation?.valid
+							? t('dashboard.status.ready')
+							: t('dashboard.status.chooseFolder')
 					}}
 				</StatusBadge>
+				<div class="tile-actions">
+					<BaseButton variant="secondary" @click="$emit('selectWowPath')">
+						<FolderOpen :size="16" />
+						{{ t('wow.select') }}
+					</BaseButton>
+					<BaseButton
+						:disabled="!wowValidation?.valid || launchingGame"
+						@click="$emit('launchGame')"
+					>
+						<Play :size="16" />
+						{{ launchingGame ? t('game.launching') : t('game.launch') }}
+					</BaseButton>
+				</div>
 			</div>
 
 			<div class="info-tile">
@@ -80,10 +111,29 @@ function formatBackupDate(backup: WtfBackupSummary | null): string {
 				<StatusBadge :tone="fpsPatchStatus?.installed ? 'ok' : 'warning'">
 					{{
 						fpsPatchStatus?.installed
-							? t('dashboard.ready')
-							: t('dashboard.actionRequired')
+							? t('dashboard.status.installed')
+							: t('dashboard.status.canInstall')
 					}}
 				</StatusBadge>
+				<div class="tile-actions">
+					<BaseButton
+						v-if="!fpsPatchStatus?.installed"
+						:disabled="installingFpsPatch"
+						@click="$emit('installFpsPatch')"
+					>
+						<Download :size="16" />
+						{{ installingFpsPatch ? t('fpsPatch.installing') : t('fpsPatch.install') }}
+					</BaseButton>
+					<BaseButton
+						v-else
+						variant="danger"
+						:disabled="installingFpsPatch"
+						@click="$emit('deleteFpsPatch')"
+					>
+						<Trash2 :size="16" />
+						{{ t('fpsPatch.delete') }}
+					</BaseButton>
+				</div>
 			</div>
 
 			<div class="info-tile">
@@ -96,24 +146,50 @@ function formatBackupDate(backup: WtfBackupSummary | null): string {
 					}}
 				</strong>
 				<StatusBadge :tone="addonsUpdated === true ? 'ok' : 'neutral'">
-					{{ t('dashboard.soon') }}
+					{{ t('dashboard.status.inProgress') }}
 				</StatusBadge>
+				<div class="tile-actions">
+					<BaseButton variant="secondary" @click="$emit('openAddons')">
+						<Puzzle :size="16" />
+						{{ t('footer.checkAddons') }}
+					</BaseButton>
+				</div>
 			</div>
 
 			<div class="info-tile">
 				<span class="tile-label">{{ t('dashboard.tile.clientCheck') }}</span>
 				<strong>{{ clientLabel() }}</strong>
 				<StatusBadge :tone="clientTone()">
-					{{ clientCheckResult ? t('dashboard.checked') : t('dashboard.notChecked') }}
+					{{
+						clientCheckResult
+							? t('dashboard.status.checked')
+							: t('dashboard.status.notChecked')
+					}}
 				</StatusBadge>
+				<div class="tile-actions">
+					<BaseButton :disabled="checkingClient" @click="$emit('checkClient')">
+						<SearchCheck :size="16" />
+						{{ checkingClient ? t('clientCheck.checking') : t('clientCheck.check') }}
+					</BaseButton>
+				</div>
 			</div>
 
 			<div class="info-tile">
 				<span class="tile-label">{{ t('dashboard.tile.wtfBackup') }}</span>
 				<strong>{{ formatBackupDate(latestBackup) }}</strong>
 				<StatusBadge :tone="latestBackup ? 'ok' : 'warning'">
-					{{ latestBackup ? t('dashboard.ready') : t('dashboard.actionRequired') }}
+					{{
+						latestBackup
+							? t('dashboard.status.backedUp')
+							: t('dashboard.status.makeBackup')
+					}}
 				</StatusBadge>
+				<div class="tile-actions">
+					<BaseButton :disabled="creatingBackup" @click="$emit('createBackup')">
+						<Archive :size="16" />
+						{{ creatingBackup ? t('backup.creating') : t('backup.create') }}
+					</BaseButton>
+				</div>
 			</div>
 		</div>
 	</BasePanel>

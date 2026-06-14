@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -9,8 +9,10 @@ import {
 } from '../src/core/clientPatches/clientPatches'
 import {
 	createClientPatchService,
+	type ClientMd5Cache,
 	type FetchJson
 } from '../src/main/clientPatches/clientPatchService'
+import { createFileClientMd5Cache } from '../src/main/clientPatches/clientMd5Cache'
 import type { SettingsStore } from '../src/main/settings/fileSettingsStore'
 import type { LauncherSettings } from '../src/shared/contracts'
 
@@ -83,7 +85,9 @@ describe('client patch service', () => {
 			async (path) => {
 				const content = path.endsWith('ok.mpq') ? 'ok' : 'bad'
 				return createHash('md5').update(content).digest('hex')
-			}
+			},
+			async () => undefined,
+			() => root
 		)
 
 		const result = await service.check()
@@ -94,6 +98,98 @@ describe('client patch service', () => {
 		expect(result.outdated).toBe(1)
 		expect(result.missing).toBe(1)
 		expect(result.files.map((file) => file.status)).toEqual(['ok', 'outdated', 'missing'])
+	})
+
+	it('lists manifest files with target paths and downloads a selected file safely', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'sirus-client-download-'))
+		const wowPath = join(root, 'wow')
+		const tempRoot = join(root, 'temp')
+		await mkdir(tempRoot, { recursive: true })
+
+		const fileContent = 'patched'
+		const fetchJson: FetchJson = async () => ({
+			patches: [createManifestFile('patch.mpq', '/Data/', fileContent)]
+		})
+
+		const service = createClientPatchService(
+			createMemorySettingsStore({ wowPath }),
+			fetchJson,
+			async (path) =>
+				createHash('md5')
+					.update(await readFile(path))
+					.digest('hex'),
+			async (_url, targetPath) => {
+				await writeFile(targetPath, fileContent)
+			},
+			() => tempRoot
+		)
+
+		const manifest = await service.list()
+		expect(manifest.total).toBe(1)
+		expect(manifest.files[0].targetPath).toBe(join(wowPath, 'Data', 'patch.mpq'))
+
+		const result = await service.downloadFile({
+			fileName: 'patch.mpq',
+			relativePath: '/Data/'
+		})
+
+		expect(result.file.status).toBe('ok')
+		expect(await readFile(join(wowPath, 'Data', 'patch.mpq'), 'utf8')).toBe(fileContent)
+	})
+
+	it('reuses cached md5 for unchanged files on repeated checks', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'sirus-client-md5-cache-'))
+		const wowPath = join(root, 'wow')
+		await mkdir(join(wowPath, 'Data'), { recursive: true })
+		await writeFile(join(wowPath, 'Data', 'ok.mpq'), 'same')
+		await writeFile(join(wowPath, 'Data', 'bad.mpq'), 'bad')
+
+		const fetchJson: FetchJson = async () => ({
+			patches: [
+				createManifestFile('ok.mpq', '/Data/', 'same'),
+				createManifestFile('bad.mpq', '/Data/', 'dad')
+			]
+		})
+		const md5Cache = createMemoryMd5Cache()
+		let hashCalls = 0
+
+		const service = createClientPatchService(
+			createMemorySettingsStore({ wowPath }),
+			fetchJson,
+			async (path) => {
+				hashCalls += 1
+				return createHash('md5')
+					.update(await readFile(path))
+					.digest('hex')
+			},
+			async () => undefined,
+			() => root,
+			md5Cache
+		)
+
+		const firstResult = await service.check()
+		expect(firstResult.files.map((file) => file.status)).toEqual(['ok', 'outdated'])
+		expect(hashCalls).toBe(2)
+
+		const secondResult = await service.check()
+		expect(secondResult.files.map((file) => file.status)).toEqual(['ok', 'outdated'])
+		expect(hashCalls).toBe(2)
+	})
+
+	it('persists md5 cache entries and invalidates them by size or mtime', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'sirus-client-md5-file-cache-'))
+		const cache = createFileClientMd5Cache(() => root)
+		const key = {
+			filePath: join(root, 'wow', 'Data', 'file.mpq'),
+			size: 4,
+			mtimeMs: 100
+		}
+
+		await cache.set(key, '6149eaf8791547a8f87454d687a46b29')
+
+		expect(await cache.get(key)).toBe('6149eaf8791547a8f87454d687a46b29')
+		expect(await cache.get({ ...key, size: 5 })).toBeUndefined()
+		expect(await cache.get({ ...key, mtimeMs: 101 })).toBeUndefined()
 	})
 })
 
@@ -125,4 +221,21 @@ function createMemorySettingsStore(patch: Partial<LauncherSettings>): SettingsSt
 			return settings
 		}
 	}
+}
+
+function createMemoryMd5Cache(): ClientMd5Cache {
+	const entries = new Map<string, string>()
+
+	return {
+		async get(key) {
+			return entries.get(createMemoryMd5CacheKey(key))
+		},
+		async set(key, md5) {
+			entries.set(createMemoryMd5CacheKey(key), md5)
+		}
+	}
+}
+
+function createMemoryMd5CacheKey(key: { filePath: string; size: number; mtimeMs: number }): string {
+	return `${key.filePath}:${key.size}:${key.mtimeMs}`
 }

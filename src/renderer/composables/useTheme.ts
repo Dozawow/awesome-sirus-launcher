@@ -1,30 +1,13 @@
-import { computed, ref, watchEffect } from 'vue'
-import { readLocalStorageValue, writeLocalStorageValue } from '@renderer/shared/storage'
+import { watchEffect } from 'vue'
 
-export type ThemeMode = 'light' | 'dark'
-
-const themeOptions = ['light', 'dark'] as const
-const theme = ref<ThemeMode>(readLocalStorageValue('launcher.theme', themeOptions, 'dark'))
+export type ThemeMode = 'dark'
 
 export function useTheme() {
-	function setTheme(next: ThemeMode): void {
-		theme.value = next
-		writeLocalStorageValue('launcher.theme', next)
-	}
-
-	function toggleTheme(): void {
-		setTheme(theme.value === 'dark' ? 'light' : 'dark')
-	}
-
 	watchEffect(() => {
-		document.documentElement.dataset.theme = theme.value
+		document.documentElement.dataset.theme = 'dark'
 	})
 
 	return {
-		theme,
-		themeOptions,
-		currentTheme: computed(() => theme.value),
-		setTheme,
-		toggleTheme
+		currentTheme: 'dark' as ThemeMode
 	}
 }

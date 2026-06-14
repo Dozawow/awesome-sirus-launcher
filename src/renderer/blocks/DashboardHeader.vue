@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import type { GitHubTokenStatus } from '@shared/contracts'
-import StatusBadge from '@renderer/components/StatusBadge.vue'
 import BaseButton from '@renderer/components/BaseButton.vue'
 import { localeLabels, type Locale } from '@renderer/shared/i18n'
 import { useLocale } from '@renderer/composables/useLocale'
-import { useTheme, type ThemeMode } from '@renderer/composables/useTheme'
 
 defineProps<{
 	githubTokenStatus: GitHubTokenStatus
@@ -12,12 +10,11 @@ defineProps<{
 	eyebrow: string
 }>()
 
-const { currentLocale, localeOptions, setLocale, t } = useLocale()
-const { currentTheme, setTheme } = useTheme()
+defineEmits<{
+	openToken: []
+}>()
 
-function nextTheme(): ThemeMode {
-	return currentTheme.value === 'dark' ? 'light' : 'dark'
-}
+const { currentLocale, localeOptions, setLocale, t } = useLocale()
 </script>
 
 <template>
@@ -38,10 +35,12 @@ function nextTheme(): ThemeMode {
 					</option>
 				</select>
 			</label>
-			<BaseButton variant="secondary" @click="setTheme(nextTheme())">
-				{{ currentTheme === 'dark' ? t('theme.light') : t('theme.dark') }}
-			</BaseButton>
-			<StatusBadge :tone="githubTokenStatus.configured ? 'ok' : 'neutral'">
+			<button
+				class="token-status-button"
+				type="button"
+				:class="{ 'token-status-button--ready': githubTokenStatus.configured }"
+				@click="$emit('openToken')"
+			>
 				{{
 					t('github.status', {
 						status: githubTokenStatus.configured
@@ -49,7 +48,7 @@ function nextTheme(): ThemeMode {
 							: t('github.missing')
 					})
 				}}
-			</StatusBadge>
+			</button>
 		</div>
 	</header>
 </template>

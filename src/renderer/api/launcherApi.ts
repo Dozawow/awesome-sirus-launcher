@@ -1,5 +1,6 @@
 import type {
 	AccountConfigInput,
+	ClientPatchFileInput,
 	GitHubTokenInput,
 	LauncherApi,
 	LauncherSettingsPatch,
@@ -39,14 +40,19 @@ export const launcherApi = {
 	},
 	fpsPatch: {
 		getStatus: () => getLauncher().fpsPatch.getStatus(),
-		install: () => getLauncher().fpsPatch.install()
+		install: () => getLauncher().fpsPatch.install(),
+		delete: () => getLauncher().fpsPatch.delete()
 	},
 	client: {
-		check: () => getLauncher().client.check()
+		list: () => getLauncher().client.list(),
+		check: () => getLauncher().client.check(),
+		downloadFile: (input: ClientPatchFileInput) => getLauncher().client.downloadFile(input),
+		downloadMissing: () => getLauncher().client.downloadMissing()
 	},
 	wow: {
 		validatePath: (wowPath: string) => getLauncher().wow.validatePath(wowPath),
 		previewAccountConfig: (input: AccountConfigInput) =>
-			getLauncher().wow.previewAccountConfig(input)
+			getLauncher().wow.previewAccountConfig(input),
+		launchGame: () => getLauncher().wow.launchGame()
 	}
 }

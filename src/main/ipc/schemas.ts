@@ -99,6 +99,16 @@ export const fpsPatchInstallResultSchema = z.object({
 	sourceUrl: z.string()
 })
 
+export const fpsPatchDeleteResultSchema = z.object({
+	status: fpsPatchStatusSchema,
+	deleted: z.boolean()
+})
+
+export const gameLaunchResultSchema = z.object({
+	launchedAt: z.string(),
+	executablePath: z.string()
+})
+
 export const clientPatchFileStatusSchema = z.enum(['ok', 'missing', 'outdated'])
 
 export const clientPatchCheckFileSchema = z.object({
@@ -113,6 +123,23 @@ export const clientPatchCheckFileSchema = z.object({
 	status: clientPatchFileStatusSchema
 })
 
+export const clientPatchManifestFileSchema = z.object({
+	fileName: z.string(),
+	relativePath: z.string(),
+	targetPath: z.string(),
+	expectedMd5: z.string(),
+	expectedSize: z.number(),
+	downloadUrl: z.string(),
+	updatedAt: z.string().optional()
+})
+
+export const clientPatchManifestResultSchema = z.object({
+	loadedAt: z.string(),
+	sourceUrl: z.string(),
+	total: z.number(),
+	files: z.array(clientPatchManifestFileSchema)
+})
+
 export const clientCheckResultSchema = z.object({
 	checkedAt: z.string(),
 	sourceUrl: z.string(),
@@ -120,5 +147,23 @@ export const clientCheckResultSchema = z.object({
 	ok: z.number(),
 	missing: z.number(),
 	outdated: z.number(),
+	files: z.array(clientPatchCheckFileSchema)
+})
+
+export const clientPatchFileInputSchema = z
+	.object({
+		fileName: z.string().min(1),
+		relativePath: z.string()
+	})
+	.strict()
+
+export const clientPatchDownloadResultSchema = z.object({
+	downloadedAt: z.string(),
+	file: clientPatchCheckFileSchema
+})
+
+export const clientPatchDownloadAllResultSchema = z.object({
+	downloadedAt: z.string(),
+	total: z.number(),
 	files: z.array(clientPatchCheckFileSchema)
 })

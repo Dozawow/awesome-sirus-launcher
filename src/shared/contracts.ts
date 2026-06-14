@@ -22,14 +22,19 @@ export const ipcChannels = {
 	},
 	fpsPatch: {
 		getStatus: 'fps-patch:get-status',
-		install: 'fps-patch:install'
+		install: 'fps-patch:install',
+		delete: 'fps-patch:delete'
 	},
 	client: {
-		check: 'client:check'
+		list: 'client:list',
+		check: 'client:check',
+		downloadFile: 'client:download-file',
+		downloadMissing: 'client:download-missing'
 	},
 	wow: {
 		validatePath: 'wow:validate-path',
-		previewAccountConfig: 'wow:preview-account-config'
+		previewAccountConfig: 'wow:preview-account-config',
+		launchGame: 'wow:launch-game'
 	}
 } as const
 
@@ -144,6 +149,16 @@ export interface FpsPatchInstallResult {
 	sourceUrl: string
 }
 
+export interface FpsPatchDeleteResult {
+	status: FpsPatchStatus
+	deleted: boolean
+}
+
+export interface GameLaunchResult {
+	launchedAt: string
+	executablePath: string
+}
+
 export type ClientPatchFileStatus = 'ok' | 'missing' | 'outdated'
 
 export interface ClientPatchCheckFile {
@@ -158,6 +173,23 @@ export interface ClientPatchCheckFile {
 	status: ClientPatchFileStatus
 }
 
+export interface ClientPatchManifestFile {
+	fileName: string
+	relativePath: string
+	targetPath: string
+	expectedMd5: string
+	expectedSize: number
+	downloadUrl: string
+	updatedAt?: string
+}
+
+export interface ClientPatchManifestResult {
+	loadedAt: string
+	sourceUrl: string
+	total: number
+	files: ClientPatchManifestFile[]
+}
+
 export interface ClientCheckResult {
 	checkedAt: string
 	sourceUrl: string
@@ -165,6 +197,22 @@ export interface ClientCheckResult {
 	ok: number
 	missing: number
 	outdated: number
+	files: ClientPatchCheckFile[]
+}
+
+export interface ClientPatchFileInput {
+	fileName: string
+	relativePath: string
+}
+
+export interface ClientPatchDownloadResult {
+	downloadedAt: string
+	file: ClientPatchCheckFile
+}
+
+export interface ClientPatchDownloadAllResult {
+	downloadedAt: string
+	total: number
 	files: ClientPatchCheckFile[]
 }
 
@@ -192,12 +240,17 @@ export interface LauncherApi {
 	fpsPatch: {
 		getStatus(): Promise<FpsPatchStatus>
 		install(): Promise<FpsPatchInstallResult>
+		delete(): Promise<FpsPatchDeleteResult>
 	}
 	client: {
+		list(): Promise<ClientPatchManifestResult>
 		check(): Promise<ClientCheckResult>
+		downloadFile(input: ClientPatchFileInput): Promise<ClientPatchDownloadResult>
+		downloadMissing(): Promise<ClientPatchDownloadAllResult>
 	}
 	wow: {
 		validatePath(wowPath: string): Promise<WowPathValidation>
 		previewAccountConfig(input: AccountConfigInput): Promise<AccountConfigPreview>
+		launchGame(): Promise<GameLaunchResult>
 	}
 }

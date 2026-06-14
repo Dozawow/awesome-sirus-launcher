@@ -4,8 +4,10 @@ import {
 	clientCheckResultSchema,
 	createWtfBackupResultSchema,
 	deleteWtfBackupResultSchema,
+	fpsPatchDeleteResultSchema,
 	fpsPatchInstallResultSchema,
 	fpsPatchStatusSchema,
+	gameLaunchResultSchema,
 	githubTokenInputSchema,
 	launcherSettingsPatchSchema,
 	restoreWtfBackupResultSchema,
@@ -28,18 +30,18 @@ describe('ipc schemas', () => {
 			wowPathValidationSchema.parse({
 				wowPath: 'F:/wow',
 				valid: false,
-				executablePath: 'F:/wow/Wow.exe',
+				executablePath: 'F:/wow/run.exe',
 				dataPath: 'F:/wow/Data',
 				localeDataPath: 'F:/wow/Data/ruRU',
 				interfacePath: 'F:/wow/Interface',
 				addonsPath: 'F:/wow/Interface/AddOns',
 				wtfPath: 'F:/wow/WTF',
 				configWtfPath: 'F:/wow/WTF/Config.wtf',
-				missing: ['Wow.exe']
+				missing: ['run.exe']
 			})
 		).toMatchObject({
 			valid: false,
-			missing: ['Wow.exe']
+			missing: ['run.exe']
 		})
 	})
 
@@ -82,6 +84,19 @@ describe('ipc schemas', () => {
 			status,
 			sourceUrl: status.sourceUrls[0]
 		})
+		expect(fpsPatchDeleteResultSchema.parse({ status, deleted: true })).toEqual({
+			status,
+			deleted: true
+		})
+	})
+
+	it('validates game launch output shape', () => {
+		const result = {
+			launchedAt: '2026-06-14T10:20:30.000Z',
+			executablePath: 'F:/wow/run.exe'
+		}
+
+		expect(gameLaunchResultSchema.parse(result)).toEqual(result)
 	})
 
 	it('validates client check output shape', () => {

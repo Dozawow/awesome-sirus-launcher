@@ -6,6 +6,7 @@ import { useLocale } from '@renderer/composables/useLocale'
 
 defineProps<{
 	backups: WtfBackupSummary[]
+	creating: boolean
 }>()
 
 defineEmits<{
@@ -33,7 +34,9 @@ function formatSize(size: number): string {
 				<BaseButton variant="secondary" @click="$emit('openFolder')">
 					{{ t('backup.openFolder') }}
 				</BaseButton>
-				<BaseButton @click="$emit('create')">{{ t('backup.create') }}</BaseButton>
+				<BaseButton :disabled="creating" @click="$emit('create')">
+					{{ creating ? t('backup.creating') : t('backup.create') }}
+				</BaseButton>
 			</div>
 		</div>
 

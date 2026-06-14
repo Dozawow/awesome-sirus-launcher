@@ -1,0 +1,34 @@
+import { dirname } from 'node:path'
+import type { GameLaunchResult } from '@shared/contracts'
+import type { SettingsStore } from '@main/settings/fileSettingsStore'
+import { validateWowPath } from '../../core/wow/wowPaths'
+
+export type LaunchProcess = (executablePath: string, cwd: string) => Promise<void>
+
+export interface GameLaunchService {
+	launch(): Promise<GameLaunchResult>
+}
+
+export function createGameLaunchService(
+	settingsStore: SettingsStore,
+	launchProcess: LaunchProcess
+): GameLaunchService {
+	return {
+		async launch() {
+			const settings = await settingsStore.get()
+			if (!settings.wowPath) throw new Error('Сначала выберите папку WoW')
+
+			const validation = validateWowPath(settings.wowPath)
+			if (!validation.valid) {
+				throw new Error(`Клиент WoW не готов: ${validation.missing.join(', ')}`)
+			}
+
+			await launchProcess(validation.executablePath, dirname(validation.executablePath))
+
+			return {
+				launchedAt: new Date().toISOString(),
+				executablePath: validation.executablePath
+			}
+		}
+	}
+}

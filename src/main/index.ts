@@ -1,24 +1,34 @@
 import { join } from 'node:path'
+import { spawn } from 'node:child_process'
 import { app, BrowserWindow, dialog, shell, type OpenDialogOptions } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { ipcChannels } from '@shared/contracts'
 import { updateAccountConfigText } from '@core/accounts/configWtf'
 import { createWtfBackupService } from '@main/backup/wtfBackupService'
+import { createFileClientMd5Cache } from '@main/clientPatches/clientMd5Cache'
 import { createClientPatchService } from '@main/clientPatches/clientPatchService'
 import { downloadFile } from '@main/downloads/downloadFile'
 import { fetchJson } from '@main/downloads/fetchJson'
 import { md5File } from '@main/files/md5File'
 import { createFpsPatchService } from '@main/fpsPatch/fpsPatchService'
 import { registerIpcHandler } from '@main/ipc/ipcHandler'
+import { createGameLaunchService } from '@main/launcher/gameLaunchService'
+import { getPreloadPath } from '@main/windowPaths'
 import {
 	accountConfigInputSchema,
 	accountConfigPreviewSchema,
 	appInfoSchema,
+	clientPatchDownloadAllResultSchema,
+	clientPatchDownloadResultSchema,
+	clientPatchFileInputSchema,
+	clientPatchManifestResultSchema,
 	clientCheckResultSchema,
 	createWtfBackupResultSchema,
 	deleteWtfBackupResultSchema,
+	fpsPatchDeleteResultSchema,
 	fpsPatchInstallResultSchema,
 	fpsPatchStatusSchema,
+	gameLaunchResultSchema,
 	githubTokenInputSchema,
 	githubTokenStatusSchema,
 	launcherSettingsPatchSchema,
@@ -43,7 +53,23 @@ const fpsPatchService = createFpsPatchService(
 	settingsStore,
 	downloadFile
 )
-const clientPatchService = createClientPatchService(settingsStore, fetchJson, md5File)
+const clientPatchService = createClientPatchService(
+	settingsStore,
+	fetchJson,
+	md5File,
+	downloadFile,
+	() => app.getPath('temp'),
+	createFileClientMd5Cache(() => app.getPath('userData'))
+)
+const gameLaunchService = createGameLaunchService(settingsStore, async (executablePath, cwd) => {
+	const child = spawn(executablePath, [], {
+		cwd,
+		detached: true,
+		stdio: 'ignore',
+		windowsHide: false
+	})
+	child.unref()
+})
 
 function createWindow(): void {
 	const mainWindow = new BrowserWindow({
@@ -54,7 +80,7 @@ function createWindow(): void {
 		show: false,
 		autoHideMenuBar: true,
 		webPreferences: {
-			preload: join(__dirname, '../preload/index.mjs'),
+			preload: getPreloadPath(app.getAppPath()),
 			sandbox: false,
 			contextIsolation: true,
 			nodeIntegration: false
@@ -197,10 +223,38 @@ function registerIpcHandlers(): void {
 	)
 
 	registerIpcHandler(
+		ipcChannels.fpsPatch.delete,
+		voidInputSchema,
+		fpsPatchDeleteResultSchema,
+		async () => fpsPatchService.delete()
+	)
+
+	registerIpcHandler(
+		ipcChannels.client.list,
+		voidInputSchema,
+		clientPatchManifestResultSchema,
+		async () => clientPatchService.list()
+	)
+
+	registerIpcHandler(
 		ipcChannels.client.check,
 		voidInputSchema,
 		clientCheckResultSchema,
 		async () => clientPatchService.check()
+	)
+
+	registerIpcHandler(
+		ipcChannels.client.downloadFile,
+		clientPatchFileInputSchema,
+		clientPatchDownloadResultSchema,
+		async (input) => clientPatchService.downloadFile(input)
+	)
+
+	registerIpcHandler(
+		ipcChannels.client.downloadMissing,
+		voidInputSchema,
+		clientPatchDownloadAllResultSchema,
+		async () => clientPatchService.downloadMissing()
 	)
 
 	registerIpcHandler(
@@ -219,6 +273,13 @@ function registerIpcHandlers(): void {
 				login: input.login,
 				password: input.password
 			})
+	)
+
+	registerIpcHandler(
+		ipcChannels.wow.launchGame,
+		voidInputSchema,
+		gameLaunchResultSchema,
+		async () => gameLaunchService.launch()
 	)
 }
 

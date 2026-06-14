@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
 	AccountConfigInput,
+	ClientPatchFileInput,
 	GitHubTokenInput,
 	LauncherApi,
 	LauncherSettingsPatch,
@@ -35,16 +36,22 @@ const api: LauncherApi = {
 	},
 	fpsPatch: {
 		getStatus: () => ipcRenderer.invoke(ipcChannels.fpsPatch.getStatus),
-		install: () => ipcRenderer.invoke(ipcChannels.fpsPatch.install)
+		install: () => ipcRenderer.invoke(ipcChannels.fpsPatch.install),
+		delete: () => ipcRenderer.invoke(ipcChannels.fpsPatch.delete)
 	},
 	client: {
-		check: () => ipcRenderer.invoke(ipcChannels.client.check)
+		list: () => ipcRenderer.invoke(ipcChannels.client.list),
+		check: () => ipcRenderer.invoke(ipcChannels.client.check),
+		downloadFile: (input: ClientPatchFileInput) =>
+			ipcRenderer.invoke(ipcChannels.client.downloadFile, input),
+		downloadMissing: () => ipcRenderer.invoke(ipcChannels.client.downloadMissing)
 	},
 	wow: {
 		validatePath: (wowPath: string) =>
 			ipcRenderer.invoke(ipcChannels.wow.validatePath, wowPath),
 		previewAccountConfig: (input: AccountConfigInput) =>
-			ipcRenderer.invoke(ipcChannels.wow.previewAccountConfig, input)
+			ipcRenderer.invoke(ipcChannels.wow.previewAccountConfig, input),
+		launchGame: () => ipcRenderer.invoke(ipcChannels.wow.launchGame)
 	}
 }
 
