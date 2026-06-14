@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type {
 	AppInfo,
 	ClientCheckResult,
@@ -9,9 +9,12 @@ import type {
 	WowPathValidation,
 	WtfBackupSummary
 } from '@shared/contracts'
+import AddonsPanel from '@renderer/elements/AddonsPanel.vue'
 import AppSidebar from '@renderer/blocks/AppSidebar.vue'
 import ClientCheckPanel from '@renderer/elements/ClientCheckPanel.vue'
+import ClientPathModal from '@renderer/elements/ClientPathModal.vue'
 import DashboardHeader from '@renderer/blocks/DashboardHeader.vue'
+import DashboardOverviewPanel from '@renderer/elements/DashboardOverviewPanel.vue'
 import FpsPatchPanel from '@renderer/elements/FpsPatchPanel.vue'
 import GitHubTokenForm from '@renderer/elements/GitHubTokenForm.vue'
 import LaunchBehaviorForm from '@renderer/elements/LaunchBehaviorForm.vue'
@@ -20,6 +23,27 @@ import WtfBackupPanel from '@renderer/elements/WtfBackupPanel.vue'
 import { launcherApi } from '@renderer/api/launcherApi'
 import { useLocale } from '@renderer/composables/useLocale'
 import { useTheme } from '@renderer/composables/useTheme'
+import type { MessageKey } from '@renderer/shared/i18n'
+
+type LauncherSection = 'dashboard' | 'addons' | 'client' | 'patch' | 'wtf' | 'settings'
+
+const sectionTitleKeys: Record<LauncherSection, MessageKey> = {
+	dashboard: 'section.dashboard.title',
+	addons: 'section.addons.title',
+	client: 'section.client.title',
+	patch: 'section.patch.title',
+	wtf: 'section.wtf.title',
+	settings: 'section.settings.title'
+}
+
+const sectionEyebrowKeys: Record<LauncherSection, MessageKey> = {
+	dashboard: 'section.dashboard.eyebrow',
+	addons: 'section.addons.eyebrow',
+	client: 'section.client.eyebrow',
+	patch: 'section.patch.eyebrow',
+	wtf: 'section.wtf.eyebrow',
+	settings: 'section.settings.eyebrow'
+}
 
 const appInfo = ref<AppInfo | null>(null)
 const githubTokenStatus = ref<GitHubTokenStatus>({ configured: false })
@@ -34,18 +58,30 @@ const clientChecking = ref(false)
 const githubToken = ref('')
 const error = ref('')
 const notice = ref('')
+const activeSection = ref<LauncherSection>('dashboard')
 
 const { t } = useLocale()
 useTheme()
 
+const latestBackup = computed(() => backups.value[0] ?? null)
+const activeTitle = computed(() => t(sectionTitleKeys[activeSection.value]))
+const activeEyebrow = computed(() => t(sectionEyebrowKeys[activeSection.value]))
+const shouldShowClientPathModal = computed(
+	() => settings.value !== null && settings.value.wowPath.trim().length === 0
+)
+
 onMounted(async () => {
-	appInfo.value = await launcherApi.app.getInfo()
-	githubTokenStatus.value = await launcherApi.github.getTokenStatus()
-	settings.value = await launcherApi.settings.get()
-	backups.value = await launcherApi.backup.listWtf()
-	fpsPatchStatus.value = await launcherApi.fpsPatch.getStatus()
-	wowPath.value = settings.value.wowPath
-	if (wowPath.value) await validateWowPath()
+	try {
+		appInfo.value = await launcherApi.app.getInfo()
+		githubTokenStatus.value = await launcherApi.github.getTokenStatus()
+		settings.value = await launcherApi.settings.get()
+		backups.value = await launcherApi.backup.listWtf()
+		fpsPatchStatus.value = await launcherApi.fpsPatch.getStatus()
+		wowPath.value = settings.value.wowPath
+		if (wowPath.value) await validateWowPath()
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : t('app.initError')
+	}
 })
 
 async function validateWowPath(): Promise<void> {
@@ -59,20 +95,29 @@ async function validateWowPath(): Promise<void> {
 
 async function selectWowPath(): Promise<void> {
 	error.value = ''
-	settings.value = await launcherApi.settings.selectWowPath()
-	wowPath.value = settings.value.wowPath
-	fpsPatchStatus.value = await launcherApi.fpsPatch.getStatus()
-	if (wowPath.value) await validateWowPath()
+	notice.value = ''
+	try {
+		settings.value = await launcherApi.settings.selectWowPath()
+		wowPath.value = settings.value.wowPath
+		fpsPatchStatus.value = await launcherApi.fpsPatch.getStatus()
+		if (wowPath.value) await validateWowPath()
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : t('wow.selectError')
+	}
 }
 
 async function saveWowPath(): Promise<void> {
 	error.value = ''
 	notice.value = ''
-	settings.value = await launcherApi.settings.save({ wowPath: wowPath.value })
-	wowPath.value = settings.value.wowPath
-	await validateWowPath()
-	fpsPatchStatus.value = await launcherApi.fpsPatch.getStatus()
-	notice.value = t('wow.saved')
+	try {
+		settings.value = await launcherApi.settings.save({ wowPath: wowPath.value })
+		wowPath.value = settings.value.wowPath
+		await validateWowPath()
+		fpsPatchStatus.value = await launcherApi.fpsPatch.getStatus()
+		notice.value = t('wow.saved')
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : t('wow.saveError')
+	}
 }
 
 async function toggleSetting(
@@ -162,39 +207,55 @@ async function checkClient(): Promise<void> {
 		clientChecking.value = false
 	}
 }
+
+function navigate(section: string): void {
+	activeSection.value = section as LauncherSection
+	error.value = ''
+	notice.value = ''
+}
 </script>
 
 <template>
 	<main class="shell">
-		<AppSidebar :app-info="appInfo" />
+		<AppSidebar :app-info="appInfo" :active-section="activeSection" @navigate="navigate" />
 
 		<section class="workspace">
-			<DashboardHeader :github-token-status="githubTokenStatus" />
-
-			<WowPathForm
-				v-model:wow-path="wowPath"
-				:validation="wowValidation"
-				:error="error"
-				:notice="notice"
-				@select="selectWowPath"
-				@save="saveWowPath"
+			<DashboardHeader
+				:github-token-status="githubTokenStatus"
+				:title="activeTitle"
+				:eyebrow="activeEyebrow"
 			/>
 
-			<LaunchBehaviorForm v-if="settings" :settings="settings" @toggle="toggleSetting" />
+			<p v-if="error && activeSection !== 'settings'" class="error">{{ error }}</p>
+			<p v-if="notice && activeSection !== 'settings'" class="notice">{{ notice }}</p>
+
+			<DashboardOverviewPanel
+				v-if="activeSection === 'dashboard'"
+				:wow-validation="wowValidation"
+				:fps-patch-status="fpsPatchStatus"
+				:client-check-result="clientCheckResult"
+				:latest-backup="latestBackup"
+				:addons-updated="null"
+			/>
+
+			<AddonsPanel v-else-if="activeSection === 'addons'" />
 
 			<ClientCheckPanel
+				v-else-if="activeSection === 'client'"
 				:result="clientCheckResult"
 				:checking="clientChecking"
 				@check="checkClient"
 			/>
 
 			<FpsPatchPanel
+				v-else-if="activeSection === 'patch'"
 				:status="fpsPatchStatus"
 				:installing="fpsPatchInstalling"
 				@install="installFpsPatch"
 			/>
 
 			<WtfBackupPanel
+				v-else-if="activeSection === 'wtf'"
 				:backups="backups"
 				@create="createWtfBackup"
 				@restore="restoreWtfBackup"
@@ -202,11 +263,32 @@ async function checkClient(): Promise<void> {
 				@open-folder="openWtfBackupFolder"
 			/>
 
-			<GitHubTokenForm
-				v-model:token="githubToken"
-				@save="saveGitHubToken"
-				@clear="clearGitHubToken"
-			/>
+			<template v-else>
+				<WowPathForm
+					v-model:wow-path="wowPath"
+					:validation="wowValidation"
+					:error="error"
+					:notice="notice"
+					@select="selectWowPath"
+					@save="saveWowPath"
+				/>
+
+				<LaunchBehaviorForm v-if="settings" :settings="settings" @toggle="toggleSetting" />
+
+				<GitHubTokenForm
+					v-model:token="githubToken"
+					@save="saveGitHubToken"
+					@clear="clearGitHubToken"
+				/>
+			</template>
 		</section>
+
+		<ClientPathModal
+			v-if="shouldShowClientPathModal"
+			v-model:wow-path="wowPath"
+			:error="error"
+			@select="selectWowPath"
+			@save="saveWowPath"
+		/>
 	</main>
 </template>

@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, dialog, shell } from 'electron'
+import { app, BrowserWindow, dialog, shell, type OpenDialogOptions } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { ipcChannels } from '@shared/contracts'
 import { updateAccountConfigText } from '@core/accounts/configWtf'
@@ -54,7 +54,7 @@ function createWindow(): void {
 		show: false,
 		autoHideMenuBar: true,
 		webPreferences: {
-			preload: join(__dirname, '../preload/index.js'),
+			preload: join(__dirname, '../preload/index.mjs'),
 			sandbox: false,
 			contextIsolation: true,
 			nodeIntegration: false
@@ -130,11 +130,15 @@ function registerIpcHandlers(): void {
 		ipcChannels.settings.selectWowPath,
 		voidInputSchema,
 		launcherSettingsSchema,
-		async () => {
-			const result = await dialog.showOpenDialog({
+		async (_input, event) => {
+			const parentWindow = BrowserWindow.fromWebContents(event.sender)
+			const dialogOptions: OpenDialogOptions = {
 				title: 'Выбрать папку World of Warcraft Sirus',
 				properties: ['openDirectory']
-			})
+			}
+			const result = parentWindow
+				? await dialog.showOpenDialog(parentWindow, dialogOptions)
+				: await dialog.showOpenDialog(dialogOptions)
 
 			if (result.canceled || !result.filePaths[0]) return settingsStore.get()
 			return settingsStore.save({ wowPath: result.filePaths[0] })

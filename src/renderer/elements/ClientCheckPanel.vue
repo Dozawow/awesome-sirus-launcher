@@ -40,7 +40,7 @@ function statusLabelKey(status: ClientCheckResult['files'][number]['status']) {
 		</div>
 
 		<div v-if="result" class="result">
-			<StatusBadge :ok="result.missing === 0 && result.outdated === 0">
+			<StatusBadge :tone="result.missing === 0 && result.outdated === 0 ? 'ok' : 'warning'">
 				{{
 					result.missing === 0 && result.outdated === 0
 						? t('clientCheck.clean')

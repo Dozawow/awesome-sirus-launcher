@@ -8,6 +8,8 @@ import { useTheme, type ThemeMode } from '@renderer/composables/useTheme'
 
 defineProps<{
 	githubTokenStatus: GitHubTokenStatus
+	title: string
+	eyebrow: string
 }>()
 
 const { currentLocale, localeOptions, setLocale, t } = useLocale()
@@ -21,8 +23,8 @@ function nextTheme(): ThemeMode {
 <template>
 	<header class="topbar">
 		<div>
-			<p class="eyebrow">{{ t('header.eyebrow') }}</p>
-			<h2>{{ t('header.title') }}</h2>
+			<p class="eyebrow">{{ eyebrow }}</p>
+			<h2>{{ title }}</h2>
 		</div>
 		<div class="topbar__actions">
 			<label class="locale-select">

@@ -4,7 +4,7 @@ import { readLocalStorageValue, writeLocalStorageValue } from '@renderer/shared/
 export type ThemeMode = 'light' | 'dark'
 
 const themeOptions = ['light', 'dark'] as const
-const theme = ref<ThemeMode>(readLocalStorageValue('launcher.theme', themeOptions, 'light'))
+const theme = ref<ThemeMode>(readLocalStorageValue('launcher.theme', themeOptions, 'dark'))
 
 export function useTheme() {
 	function setTheme(next: ThemeMode): void {

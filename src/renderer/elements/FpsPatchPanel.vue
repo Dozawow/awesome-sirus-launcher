@@ -41,7 +41,7 @@ function formatSize(size?: number): string {
 		</div>
 
 		<div class="result">
-			<StatusBadge :ok="Boolean(status?.installed)">
+			<StatusBadge :tone="status?.installed ? 'ok' : 'warning'">
 				{{ status?.installed ? t('fpsPatch.installed') : t('fpsPatch.missing') }}
 			</StatusBadge>
 			<p v-if="status?.patchPath" class="path-text">{{ status.patchPath }}</p>

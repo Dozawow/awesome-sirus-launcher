@@ -2,9 +2,15 @@
 	"name": "awesome-sirus-launcher",
 	"version": "0.0.0",
 	"description": "Electron/Vue launcher for Sirus WoW addons, patches, backups, accounts and game launch.",
+	"author": "fxpw accidev",
 	"license": "MIT",
 	"type": "module",
 	"main": "out/main/index.js",
+	"packageManager": "npm@11.17.0",
+	"engines": {
+		"node": ">=22.22.3",
+		"npm": ">=11.17.0"
+	},
 	"scripts": {
 		"dev": "electron-vite dev",
 		"start": "electron-vite dev",
@@ -50,6 +56,7 @@
 		"directories": {
 			"output": "release"
 		},
+		"icon": "build/icon.ico",
 		"files": [
 			"out/**/*",
 			"package.json"
