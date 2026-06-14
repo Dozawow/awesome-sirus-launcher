@@ -70,6 +70,7 @@ const clientChecking = ref(false)
 const clientManifestLoading = ref(false)
 const clientDownloadingKey = ref('')
 const clientDownloadingAll = ref(false)
+const addonChecking = ref(false)
 const githubToken = ref('')
 const error = ref('')
 const notice = ref('')
@@ -105,6 +106,7 @@ const footerStatusText = computed(() => {
 	if (clientChecking.value) return t('footer.status.clientChecking')
 	if (clientManifestLoading.value) return t('footer.status.clientManifest')
 	if (fpsPatchInstalling.value) return t('footer.status.fpsPatch')
+	if (addonChecking.value) return t('footer.status.addonsChecking')
 	if (gameLaunching.value) return t('footer.status.launchingGame')
 	if (wtfBackupCreating.value) return t('footer.status.wtfBackup')
 	if (notice.value) return notice.value
@@ -434,9 +436,17 @@ function navigate(section: string): void {
 	}
 }
 
-function checkAddons(): void {
+async function checkAddons(): Promise<void> {
 	navigate('addons')
-	notice.value = t('footer.status.addonsSoon')
+	addonChecking.value = true
+	try {
+		const result = await launcherApi.addons.check()
+		notice.value = t('footer.status.addonsChecked', { total: result.total })
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : t('addons.error')
+	} finally {
+		addonChecking.value = false
+	}
 }
 
 function selectClientPatchSource(sourceUrl: string): void {
@@ -544,7 +554,7 @@ function selectClientPatchSource(sourceUrl: string): void {
 			:checking-client="
 				clientChecking || clientDownloadingAll || Boolean(clientDownloadingKey)
 			"
-			:checking-addons="false"
+			:checking-addons="addonChecking"
 			:can-launch-game="Boolean(wowValidation?.valid)"
 			:launching-game="gameLaunching"
 			:status-text="footerStatusText"

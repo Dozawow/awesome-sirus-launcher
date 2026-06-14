@@ -1,7 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
 	AccountConfigInput,
+	AddCustomAddonInput,
 	AddAccountInput,
+	AddonActionInput,
 	ClientPatchFileInput,
 	ClientPatchSourceInput,
 	GitHubTokenInput,
@@ -57,6 +59,16 @@ const api: LauncherApi = {
 			ipcRenderer.invoke(ipcChannels.client.downloadFile, input),
 		downloadMissing: (input?: ClientPatchSourceInput) =>
 			ipcRenderer.invoke(ipcChannels.client.downloadMissing, input)
+	},
+	addons: {
+		list: () => ipcRenderer.invoke(ipcChannels.addons.list),
+		check: () => ipcRenderer.invoke(ipcChannels.addons.check),
+		install: (input: AddonActionInput) => ipcRenderer.invoke(ipcChannels.addons.install, input),
+		updateAll: () => ipcRenderer.invoke(ipcChannels.addons.updateAll),
+		addCustom: (input: AddCustomAddonInput) =>
+			ipcRenderer.invoke(ipcChannels.addons.addCustom, input),
+		exportCustom: () => ipcRenderer.invoke(ipcChannels.addons.exportCustom),
+		importCustom: () => ipcRenderer.invoke(ipcChannels.addons.importCustom)
 	},
 	wow: {
 		validatePath: (wowPath: string) =>

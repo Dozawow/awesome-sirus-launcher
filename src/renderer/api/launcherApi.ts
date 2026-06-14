@@ -1,6 +1,8 @@
 import type {
 	AccountConfigInput,
+	AddCustomAddonInput,
 	AddAccountInput,
+	AddonActionInput,
 	ClientPatchFileInput,
 	ClientPatchSourceInput,
 	GitHubTokenInput,
@@ -57,6 +59,15 @@ export const launcherApi = {
 		downloadFile: (input: ClientPatchFileInput) => getLauncher().client.downloadFile(input),
 		downloadMissing: (input?: ClientPatchSourceInput) =>
 			getLauncher().client.downloadMissing(input)
+	},
+	addons: {
+		list: () => getLauncher().addons.list(),
+		check: () => getLauncher().addons.check(),
+		install: (input: AddonActionInput) => getLauncher().addons.install(input),
+		updateAll: () => getLauncher().addons.updateAll(),
+		addCustom: (input: AddCustomAddonInput) => getLauncher().addons.addCustom(input),
+		exportCustom: () => getLauncher().addons.exportCustom(),
+		importCustom: () => getLauncher().addons.importCustom()
 	},
 	wow: {
 		validatePath: (wowPath: string) => getLauncher().wow.validatePath(wowPath),

@@ -36,6 +36,15 @@ export const ipcChannels = {
 		downloadFile: 'client:download-file',
 		downloadMissing: 'client:download-missing'
 	},
+	addons: {
+		list: 'addons:list',
+		check: 'addons:check',
+		install: 'addons:install',
+		updateAll: 'addons:update-all',
+		addCustom: 'addons:add-custom',
+		exportCustom: 'addons:export-custom',
+		importCustom: 'addons:import-custom'
+	},
 	wow: {
 		validatePath: 'wow:validate-path',
 		previewAccountConfig: 'wow:preview-account-config',
@@ -253,6 +262,77 @@ export interface ClientPatchDownloadAllResult {
 	files: ClientPatchCheckFile[]
 }
 
+export type AddonCatalogSource = 'community' | 'sirus' | 'custom'
+export type AddonStatus = 'not-installed' | 'installed' | 'outdated' | 'manual-git' | 'unknown'
+
+export interface AddonCatalogEntry {
+	id: string
+	source: AddonCatalogSource
+	name: string
+	versionUrl?: string
+	branch: string
+	folders: string[]
+	description?: string
+	githubUrl?: string
+	repo?: string
+	forumUrl?: string
+	bugReportUrl?: string
+	author?: string
+	category?: string
+}
+
+export interface AddonSummary extends AddonCatalogEntry {
+	status: AddonStatus
+	installedVersion?: string
+	remoteVersion?: string
+	installedFolders: string[]
+	missingFolders: string[]
+	gitFolders: string[]
+	error?: string
+}
+
+export interface AddonsListResult {
+	loadedAt: string
+	total: number
+	community: number
+	sirus: number
+	custom: number
+	addons: AddonSummary[]
+}
+
+export interface AddonActionInput {
+	addonId: string
+}
+
+export interface AddonInstallResult {
+	installedAt: string
+	addon: AddonSummary
+	installedFolders: string[]
+	skippedGitFolders: string[]
+}
+
+export interface AddonsUpdateAllResult {
+	updatedAt: string
+	total: number
+	installed: AddonInstallResult[]
+	skipped: AddonSummary[]
+}
+
+export interface CustomAddonsTransferResult {
+	filePath: string
+	total: number
+	addons: AddonCatalogEntry[]
+}
+
+export interface AddCustomAddonInput {
+	name: string
+	githubUrl: string
+	branch?: string
+	folders?: string[]
+	versionUrl?: string
+	description?: string
+}
+
 export interface LauncherApi {
 	app: {
 		getInfo(): Promise<AppInfo>
@@ -289,6 +369,15 @@ export interface LauncherApi {
 		check(input?: ClientPatchSourceInput): Promise<ClientCheckResult>
 		downloadFile(input: ClientPatchFileInput): Promise<ClientPatchDownloadResult>
 		downloadMissing(input?: ClientPatchSourceInput): Promise<ClientPatchDownloadAllResult>
+	}
+	addons: {
+		list(): Promise<AddonsListResult>
+		check(): Promise<AddonsListResult>
+		install(input: AddonActionInput): Promise<AddonInstallResult>
+		updateAll(): Promise<AddonsUpdateAllResult>
+		addCustom(input: AddCustomAddonInput): Promise<AddonsListResult>
+		exportCustom(): Promise<CustomAddonsTransferResult | undefined>
+		importCustom(): Promise<CustomAddonsTransferResult | undefined>
 	}
 	wow: {
 		validatePath(wowPath: string): Promise<WowPathValidation>

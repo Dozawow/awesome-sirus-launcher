@@ -5,6 +5,8 @@ import { is } from '@electron-toolkit/utils'
 import { ipcChannels } from '@shared/contracts'
 import { updateAccountConfigText } from '@core/accounts/configWtf'
 import { createAccountService } from '@main/accounts/accountService'
+import { createAddonService } from '@main/addons/addonService'
+import { unzipToDirectory } from '@main/archive/unzipToDirectory'
 import { createWtfBackupService } from '@main/backup/wtfBackupService'
 import { createFileClientMd5Cache } from '@main/clientPatches/clientMd5Cache'
 import { createClientPatchService } from '@main/clientPatches/clientPatchService'
@@ -20,6 +22,11 @@ import {
 	accountConfigPreviewSchema,
 	accountListResultSchema,
 	addAccountInputSchema,
+	addCustomAddonInputSchema,
+	addonActionInputSchema,
+	addonInstallResultSchema,
+	addonsListResultSchema,
+	addonsUpdateAllResultSchema,
 	appInfoSchema,
 	clientPatchDownloadAllResultSchema,
 	clientPatchDownloadResultSchema,
@@ -28,6 +35,7 @@ import {
 	clientPatchSourceInputSchema,
 	clientCheckResultSchema,
 	createWtfBackupResultSchema,
+	customAddonsTransferResultSchema,
 	deleteWtfBackupResultSchema,
 	fpsPatchDeleteResultSchema,
 	fpsPatchInstallResultSchema,
@@ -66,6 +74,13 @@ const clientPatchService = createClientPatchService(
 	downloadFile,
 	() => app.getPath('temp'),
 	createFileClientMd5Cache(() => app.getPath('userData'))
+)
+const addonService = createAddonService(
+	() => app.getPath('userData'),
+	settingsStore,
+	secretStore,
+	downloadFile,
+	unzipToDirectory
 )
 const gameLaunchService = createGameLaunchService(
 	settingsStore,
@@ -286,6 +301,78 @@ function registerIpcHandlers(): void {
 		clientPatchSourceInputSchema,
 		clientPatchDownloadAllResultSchema,
 		async (input) => clientPatchService.downloadMissing(input)
+	)
+
+	registerIpcHandler(ipcChannels.addons.list, voidInputSchema, addonsListResultSchema, async () =>
+		addonService.list()
+	)
+
+	registerIpcHandler(
+		ipcChannels.addons.check,
+		voidInputSchema,
+		addonsListResultSchema,
+		async () => addonService.check()
+	)
+
+	registerIpcHandler(
+		ipcChannels.addons.install,
+		addonActionInputSchema,
+		addonInstallResultSchema,
+		async (input) => addonService.install(input)
+	)
+
+	registerIpcHandler(
+		ipcChannels.addons.updateAll,
+		voidInputSchema,
+		addonsUpdateAllResultSchema,
+		async () => addonService.updateAll()
+	)
+
+	registerIpcHandler(
+		ipcChannels.addons.addCustom,
+		addCustomAddonInputSchema,
+		addonsListResultSchema,
+		async (input) => addonService.addCustom(input)
+	)
+
+	registerIpcHandler(
+		ipcChannels.addons.exportCustom,
+		voidInputSchema,
+		customAddonsTransferResultSchema,
+		async (_input, event) => {
+			const parentWindow = BrowserWindow.fromWebContents(event.sender)
+			const dialogOptions = {
+				title: 'Экспорт пользовательских аддонов',
+				defaultPath: 'awesome-sirus-custom-addons.json',
+				filters: [{ name: 'JSON', extensions: ['json'] }]
+			}
+			const result = parentWindow
+				? await dialog.showSaveDialog(parentWindow, dialogOptions)
+				: await dialog.showSaveDialog(dialogOptions)
+			if (result.canceled || !result.filePath) return undefined
+
+			return addonService.exportCustom(result.filePath)
+		}
+	)
+
+	registerIpcHandler(
+		ipcChannels.addons.importCustom,
+		voidInputSchema,
+		customAddonsTransferResultSchema,
+		async (_input, event) => {
+			const parentWindow = BrowserWindow.fromWebContents(event.sender)
+			const dialogOptions: OpenDialogOptions = {
+				title: 'Импорт пользовательских аддонов',
+				properties: ['openFile'],
+				filters: [{ name: 'JSON', extensions: ['json'] }]
+			}
+			const result = parentWindow
+				? await dialog.showOpenDialog(parentWindow, dialogOptions)
+				: await dialog.showOpenDialog(dialogOptions)
+			if (result.canceled || !result.filePaths[0]) return undefined
+
+			return addonService.importCustom(result.filePaths[0])
+		}
 	)
 
 	registerIpcHandler(

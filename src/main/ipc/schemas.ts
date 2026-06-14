@@ -200,3 +200,86 @@ export const clientPatchDownloadAllResultSchema = z.object({
 	total: z.number(),
 	files: z.array(clientPatchCheckFileSchema)
 })
+
+export const addonCatalogSourceSchema = z.enum(['community', 'sirus', 'custom'])
+export const addonStatusSchema = z.enum([
+	'not-installed',
+	'installed',
+	'outdated',
+	'manual-git',
+	'unknown'
+])
+
+export const addonCatalogEntrySchema = z.object({
+	id: z.string(),
+	source: addonCatalogSourceSchema,
+	name: z.string(),
+	versionUrl: z.string().optional(),
+	branch: z.string(),
+	folders: z.array(z.string()),
+	description: z.string().optional(),
+	githubUrl: z.string().optional(),
+	repo: z.string().optional(),
+	forumUrl: z.string().optional(),
+	bugReportUrl: z.string().optional(),
+	author: z.string().optional(),
+	category: z.string().optional()
+})
+
+export const addonSummarySchema = addonCatalogEntrySchema.extend({
+	status: addonStatusSchema,
+	installedVersion: z.string().optional(),
+	remoteVersion: z.string().optional(),
+	installedFolders: z.array(z.string()),
+	missingFolders: z.array(z.string()),
+	gitFolders: z.array(z.string()),
+	error: z.string().optional()
+})
+
+export const addonsListResultSchema = z.object({
+	loadedAt: z.string(),
+	total: z.number(),
+	community: z.number(),
+	sirus: z.number(),
+	custom: z.number(),
+	addons: z.array(addonSummarySchema)
+})
+
+export const addonActionInputSchema = z
+	.object({
+		addonId: z.string().min(1)
+	})
+	.strict()
+
+export const addonInstallResultSchema = z.object({
+	installedAt: z.string(),
+	addon: addonSummarySchema,
+	installedFolders: z.array(z.string()),
+	skippedGitFolders: z.array(z.string())
+})
+
+export const addonsUpdateAllResultSchema = z.object({
+	updatedAt: z.string(),
+	total: z.number(),
+	installed: z.array(addonInstallResultSchema),
+	skipped: z.array(addonSummarySchema)
+})
+
+export const customAddonsTransferResultSchema = z
+	.object({
+		filePath: z.string(),
+		total: z.number(),
+		addons: z.array(addonCatalogEntrySchema)
+	})
+	.optional()
+
+export const addCustomAddonInputSchema = z
+	.object({
+		name: z.string().trim().min(1, 'Название аддона пустое'),
+		githubUrl: z.string().trim().url('Нужна ссылка на GitHub репозиторий'),
+		branch: z.string().trim().optional(),
+		folders: z.array(z.string().trim().min(1)).optional(),
+		versionUrl: z.string().trim().url().optional(),
+		description: z.string().trim().optional()
+	})
+	.strict()

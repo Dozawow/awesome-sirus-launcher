@@ -1,0 +1,446 @@
+import { existsSync } from 'node:fs'
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import addonCatalog from '../../shared/addons/addonCatalog.json'
+import type {
+	AddCustomAddonInput,
+	AddonActionInput,
+	AddonCatalogEntry,
+	AddonInstallResult,
+	AddonsListResult,
+	AddonSummary,
+	AddonsUpdateAllResult,
+	AddonStatus,
+	CustomAddonsTransferResult
+} from '@shared/contracts'
+import { buildGitHubSourceZipUrl } from '../../core/github/sourceZip'
+import { getWowPaths, validateWowPath } from '../../core/wow/wowPaths'
+import {
+	compareAddonVersions,
+	createCustomAddonEntry,
+	hasGitFolder,
+	parseTocVersion,
+	readInstalledAddonVersion
+} from '../../core/addons/addons'
+import type { SettingsStore } from '../settings/fileSettingsStore'
+import type { SecretStore } from '../secrets/memorySecretStore'
+
+type DownloadFile = (url: string, targetPath: string, options?: { token?: string }) => Promise<void>
+type UnzipToDirectory = (archivePath: string, targetDir: string) => Promise<void>
+
+interface AddonCatalogFile {
+	addons: AddonCatalogEntry[]
+}
+
+export function createAddonService(
+	getUserDataPath: () => string,
+	settingsStore: SettingsStore,
+	secretStore: SecretStore,
+	downloadFile: DownloadFile,
+	unzipToDirectory: UnzipToDirectory
+) {
+	const getCustomAddonsPath = () => join(getUserDataPath(), 'custom-addons.json')
+
+	async function list(checkRemote = false, installedOnly = false): Promise<AddonsListResult> {
+		const catalogEntries = await getCatalogEntries()
+		const entries = installedOnly
+			? await filterInstalledCatalogEntries(catalogEntries)
+			: catalogEntries
+		const addons = await Promise.all(entries.map((entry) => summarizeAddon(entry, checkRemote)))
+		const counts = countSources(addons)
+
+		return {
+			loadedAt: new Date().toISOString(),
+			total: addons.length,
+			...counts,
+			addons
+		}
+	}
+
+	async function install(input: AddonActionInput): Promise<AddonInstallResult> {
+		const entries = await getCatalogEntries()
+		const entry = entries.find((addon) => addon.id === input.addonId)
+		if (!entry) throw new Error('Аддон не найден в каталоге')
+		if (!entry.repo) throw new Error('У аддона нет GitHub репозитория')
+
+		const settings = await settingsStore.get()
+		const validation = validateWowPath(settings.wowPath)
+		if (!validation.valid) throw new Error('Сначала укажи корректную папку WoW')
+
+		const existing = await summarizeAddon(entry, false)
+		if (existing.status === 'manual-git') {
+			throw new Error('Аддон установлен из git и пропущен автообновлением')
+		}
+
+		const tempRoot = await mkdtemp(join(tmpdir(), 'sirus-addon-'))
+		const archivePath = join(tempRoot, `${entry.name}.zip`)
+		const unpackPath = join(tempRoot, 'unpacked')
+		const token = await secretStore.get('github-token')
+
+		try {
+			const zipUrl = buildGitHubSourceZipUrl({ repo: entry.repo, ref: entry.branch })
+			await downloadFile(zipUrl, archivePath, { token })
+			await unzipToDirectory(archivePath, unpackPath)
+
+			const addonDirs = await findAddonDirs(unpackPath)
+			const installedFolders: string[] = []
+			const skippedGitFolders: string[] = []
+
+			for (const addonDir of addonDirs) {
+				const folderName = addonDir.split(/[\\/]/).pop()
+				if (!folderName) continue
+				if (entry.folders.length > 0 && !entry.folders.includes(folderName)) continue
+
+				const targetPath = join(validation.addonsPath, folderName)
+				if (hasGitFolder(targetPath)) {
+					skippedGitFolders.push(folderName)
+					continue
+				}
+
+				await rm(targetPath, { recursive: true, force: true })
+				await mkdir(validation.addonsPath, { recursive: true })
+				await cp(addonDir, targetPath, { recursive: true })
+				installedFolders.push(folderName)
+			}
+
+			const addon = await summarizeAddon(entry, true)
+			return {
+				installedAt: new Date().toISOString(),
+				addon,
+				installedFolders,
+				skippedGitFolders
+			}
+		} finally {
+			await rm(tempRoot, { recursive: true, force: true })
+		}
+	}
+
+	async function updateAll(): Promise<AddonsUpdateAllResult> {
+		const checked = await list(true, true)
+		const candidates = checked.addons.filter(
+			(addon) => addon.status === 'outdated' || addon.status === 'not-installed'
+		)
+		const installed: AddonInstallResult[] = []
+		const skipped = checked.addons.filter((addon) => addon.status === 'manual-git')
+
+		for (const addon of candidates) {
+			try {
+				installed.push(await install({ addonId: addon.id }))
+			} catch {
+				skipped.push(addon)
+			}
+		}
+
+		return {
+			updatedAt: new Date().toISOString(),
+			total: installed.length,
+			installed,
+			skipped
+		}
+	}
+
+	async function addCustom(input: AddCustomAddonInput): Promise<AddonsListResult> {
+		const custom = await readCustomAddons()
+		custom.push(createCustomAddonEntry(input, custom.length + 1))
+		await writeCustomAddons(custom)
+		return list(false)
+	}
+
+	async function exportCustom(filePath: string): Promise<CustomAddonsTransferResult> {
+		const custom = await readCustomAddons()
+		const payload = {
+			version: 1,
+			exportedAt: new Date().toISOString(),
+			addons: custom
+		}
+
+		await writeFile(filePath, JSON.stringify(payload, null, 2), 'utf8')
+
+		return {
+			filePath,
+			total: custom.length,
+			addons: custom
+		}
+	}
+
+	async function importCustom(filePath: string): Promise<CustomAddonsTransferResult> {
+		const imported = normalizeImportedCustomAddons(JSON.parse(await readFile(filePath, 'utf8')))
+		const current = await readCustomAddons()
+		const merged = mergeCustomAddons(current, imported)
+		await writeCustomAddons(renumberCustomAddons(merged))
+		const next = await readCustomAddons()
+
+		return {
+			filePath,
+			total: next.length,
+			addons: next
+		}
+	}
+
+	async function getCatalogEntries(): Promise<AddonCatalogEntry[]> {
+		return [...((addonCatalog as AddonCatalogFile).addons ?? []), ...(await readCustomAddons())]
+	}
+
+	async function filterInstalledCatalogEntries(
+		entries: AddonCatalogEntry[]
+	): Promise<AddonCatalogEntry[]> {
+		const installedFolderNames = await readInstalledAddonFolderNames()
+		if (installedFolderNames.size === 0) return []
+
+		return entries.filter((entry) =>
+			getAddonFolderNames(entry).some((folder) =>
+				installedFolderNames.has(normalizeAddonName(folder))
+			)
+		)
+	}
+
+	async function readInstalledAddonFolderNames(): Promise<Set<string>> {
+		const settings = await settingsStore.get()
+		const validation = validateWowPath(settings.wowPath)
+		if (!validation.valid || !existsSync(validation.addonsPath)) return new Set()
+
+		const folders = await readdir(validation.addonsPath, { withFileTypes: true })
+		return new Set(
+			folders
+				.filter((folder) => folder.isDirectory())
+				.map((folder) => normalizeAddonName(folder.name))
+		)
+	}
+
+	async function summarizeAddon(
+		entry: AddonCatalogEntry,
+		checkRemote: boolean
+	): Promise<AddonSummary> {
+		const settings = await settingsStore.get()
+		const paths = settings.wowPath ? getWowPaths(settings.wowPath) : undefined
+		const installedFolders: string[] = []
+		const missingFolders: string[] = []
+		const gitFolders: string[] = []
+
+		for (const folder of getAddonFolderNames(entry)) {
+			const targetPath = paths ? join(paths.addonsPath, folder) : ''
+			if (!targetPath || !existsSync(targetPath)) {
+				missingFolders.push(folder)
+				continue
+			}
+
+			installedFolders.push(folder)
+			if (hasGitFolder(targetPath)) gitFolders.push(folder)
+		}
+
+		let installedVersion: string | undefined
+		let remoteVersion: string | undefined
+		let error: string | undefined
+
+		try {
+			const versionFolder = selectInstalledVersionFolder(entry, installedFolders)
+			if (paths && versionFolder) {
+				installedVersion = await readInstalledAddonVersion(
+					join(paths.addonsPath, versionFolder)
+				)
+			}
+			if (checkRemote && entry.versionUrl) {
+				remoteVersion = parseTocVersion(
+					await fetchText(entry.versionUrl, await secretStore.get('github-token'))
+				)
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Не удалось проверить аддон'
+		}
+
+		return {
+			...entry,
+			status: getStatus({
+				installedFolders,
+				missingFolders,
+				gitFolders,
+				installedVersion,
+				remoteVersion
+			}),
+			installedVersion,
+			remoteVersion,
+			installedFolders,
+			missingFolders,
+			gitFolders,
+			error
+		}
+	}
+
+	async function readCustomAddons(): Promise<AddonCatalogEntry[]> {
+		const filePath = getCustomAddonsPath()
+		if (!existsSync(filePath)) return []
+
+		return JSON.parse(await readFile(filePath, 'utf8')) as AddonCatalogEntry[]
+	}
+
+	async function writeCustomAddons(addons: AddonCatalogEntry[]): Promise<void> {
+		const filePath = getCustomAddonsPath()
+		await mkdir(getUserDataPath(), { recursive: true })
+		await writeFile(filePath, JSON.stringify(addons, null, 2), 'utf8')
+	}
+
+	return {
+		list: () => list(false),
+		check: () => list(true, true),
+		install,
+		updateAll,
+		addCustom,
+		exportCustom,
+		importCustom
+	}
+}
+
+function getStatus(input: {
+	installedFolders: string[]
+	missingFolders: string[]
+	gitFolders: string[]
+	installedVersion?: string
+	remoteVersion?: string
+}): AddonStatus {
+	if (input.gitFolders.length > 0) return 'manual-git'
+	if (input.installedFolders.length === 0) return 'not-installed'
+	if (input.missingFolders.length > 0) return 'outdated'
+	if (
+		input.installedVersion &&
+		input.remoteVersion &&
+		compareAddonVersions(input.installedVersion, input.remoteVersion) < 0
+	) {
+		return 'outdated'
+	}
+	if (!input.installedVersion || !input.remoteVersion) return 'unknown'
+
+	return 'installed'
+}
+
+async function fetchText(url: string, token?: string): Promise<string> {
+	const response = await fetch(url, {
+		headers: token ? { Authorization: `Bearer ${token}` } : undefined
+	})
+	if (!response.ok)
+		throw new Error(`Request failed ${response.status} ${response.statusText}`.trim())
+
+	return response.text()
+}
+
+async function findAddonDirs(rootPath: string): Promise<string[]> {
+	const found: string[] = []
+	await walk(rootPath, found)
+	return found
+}
+
+async function walk(dirPath: string, found: string[]): Promise<void> {
+	const entries = await readdir(dirPath, { withFileTypes: true })
+	if (entries.some((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.toc'))) {
+		found.push(resolve(dirPath))
+		return
+	}
+
+	for (const entry of entries) {
+		if (entry.isDirectory()) await walk(join(dirPath, entry.name), found)
+	}
+}
+
+function countSources(
+	addons: AddonSummary[]
+): Pick<AddonsListResult, 'community' | 'sirus' | 'custom'> {
+	return {
+		community: addons.filter((addon) => addon.source === 'community').length,
+		sirus: addons.filter((addon) => addon.source === 'sirus').length,
+		custom: addons.filter((addon) => addon.source === 'custom').length
+	}
+}
+
+function getAddonFolderNames(entry: AddonCatalogEntry): string[] {
+	return entry.folders.length > 0 ? entry.folders : [entry.name]
+}
+
+function selectInstalledVersionFolder(
+	entry: AddonCatalogEntry,
+	installedFolders: string[]
+): string | undefined {
+	const normalizedName = normalizeAddonName(entry.name)
+	return (
+		installedFolders.find((folder) => normalizeAddonName(folder) === normalizedName) ??
+		installedFolders[0]
+	)
+}
+
+function normalizeAddonName(value: string): string {
+	return value.trim().toLowerCase()
+}
+
+function normalizeImportedCustomAddons(input: unknown): AddonCatalogEntry[] {
+	const rawAddons = Array.isArray(input)
+		? input
+		: typeof input === 'object' &&
+			  input !== null &&
+			  Array.isArray((input as { addons?: unknown }).addons)
+			? (input as { addons: unknown[] }).addons
+			: []
+
+	return rawAddons
+		.map((addon, index) => normalizeImportedCustomAddon(addon, index + 1))
+		.filter((addon): addon is AddonCatalogEntry => addon !== undefined)
+}
+
+function normalizeImportedCustomAddon(
+	input: unknown,
+	index: number
+): AddonCatalogEntry | undefined {
+	if (typeof input !== 'object' || input === null) return undefined
+	const addon = input as Partial<AddonCatalogEntry>
+	if (!addon.name || !addon.githubUrl || !addon.repo) return undefined
+
+	return {
+		id: `custom:${slugify(addon.name)}:${index}`,
+		source: 'custom',
+		name: addon.name,
+		versionUrl: addon.versionUrl,
+		branch: addon.branch || 'main',
+		folders: addon.folders ?? [],
+		description: addon.description,
+		githubUrl: addon.githubUrl,
+		repo: addon.repo,
+		forumUrl: addon.forumUrl,
+		bugReportUrl: addon.bugReportUrl,
+		author: addon.author,
+		category: addon.category
+	}
+}
+
+function mergeCustomAddons(
+	current: AddonCatalogEntry[],
+	imported: AddonCatalogEntry[]
+): AddonCatalogEntry[] {
+	const merged = [...current]
+	const keys = new Set(current.map(createCustomAddonKey))
+
+	for (const addon of imported) {
+		const key = createCustomAddonKey(addon)
+		if (keys.has(key)) continue
+		keys.add(key)
+		merged.push(addon)
+	}
+
+	return merged
+}
+
+function renumberCustomAddons(addons: AddonCatalogEntry[]): AddonCatalogEntry[] {
+	return addons.map((addon, index) => ({
+		...addon,
+		id: `custom:${slugify(addon.name)}:${index + 1}`,
+		source: 'custom'
+	}))
+}
+
+function createCustomAddonKey(addon: AddonCatalogEntry): string {
+	return `${addon.name.toLowerCase()}|${addon.githubUrl?.toLowerCase() ?? addon.repo?.toLowerCase()}`
+}
+
+function slugify(value: string): string {
+	return value
+		.toLowerCase()
+		.replace(/[^a-z0-9а-яё!_-]+/gi, '-')
+		.replace(/^-+|-+$/g, '')
+}
