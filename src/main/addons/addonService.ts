@@ -234,10 +234,11 @@ export function createAddonService(
 		let error: string | undefined
 
 		try {
-			const versionFolder = selectInstalledVersionFolder(entry, installedFolders)
-			if (paths && versionFolder) {
-				installedVersion = await readInstalledAddonVersion(
-					join(paths.addonsPath, versionFolder)
+			if (paths) {
+				installedVersion = await readConfiguredInstalledAddonVersion(
+					paths.addonsPath,
+					entry,
+					installedFolders
 				)
 			}
 			if (checkRemote && entry.versionUrl) {
@@ -361,9 +362,37 @@ function selectInstalledVersionFolder(
 ): string | undefined {
 	const normalizedName = normalizeAddonName(entry.name)
 	return (
+		installedFolders.find(
+			(folder) => normalizeAddonName(folder) === `${normalizedName}-core`
+		) ??
+		installedFolders.find(
+			(folder) => normalizeAddonName(folder) === `${normalizedName}_core`
+		) ??
 		installedFolders.find((folder) => normalizeAddonName(folder) === normalizedName) ??
 		installedFolders[0]
 	)
+}
+
+async function readConfiguredInstalledAddonVersion(
+	addonsPath: string,
+	entry: AddonCatalogEntry,
+	installedFolders: string[]
+): Promise<string | undefined> {
+	const versionFolder =
+		entry.versionFolder ?? selectInstalledVersionFolder(entry, installedFolders)
+	if (!versionFolder) return undefined
+
+	const versionFolderPath = join(addonsPath, versionFolder)
+	if (!existsSync(versionFolderPath)) return undefined
+
+	if (entry.versionFile) {
+		const versionFilePath = join(versionFolderPath, entry.versionFile)
+		if (existsSync(versionFilePath)) {
+			return parseTocVersion(await readFile(versionFilePath, 'utf8'))
+		}
+	}
+
+	return readInstalledAddonVersion(versionFolderPath)
 }
 
 function normalizeAddonName(value: string): string {
@@ -397,6 +426,8 @@ function normalizeImportedCustomAddon(
 		source: 'custom',
 		name: addon.name,
 		versionUrl: addon.versionUrl,
+		versionFolder: addon.versionFolder,
+		versionFile: addon.versionFile,
 		branch: addon.branch || 'main',
 		folders: addon.folders ?? [],
 		description: addon.description,

@@ -6,6 +6,7 @@ import { Play, Puzzle, SearchCheck } from '@lucide/vue'
 defineProps<{
 	checkingClient: boolean
 	checkingAddons: boolean
+	addonUpdateCount: number
 	canLaunchGame: boolean
 	launchingGame: boolean
 	statusText: string
@@ -34,7 +35,13 @@ const { t } = useLocale()
 				@click="$emit('checkAddons')"
 			>
 				<Puzzle :size="16" />
-				{{ checkingAddons ? t('footer.checkingAddons') : t('footer.checkAddons') }}
+				{{
+					checkingAddons
+						? t('footer.checkingAddons')
+						: addonUpdateCount > 0
+							? t('footer.checkAddonsCount', { count: addonUpdateCount })
+							: t('footer.checkAddons')
+				}}
 			</BaseButton>
 		</div>
 		<div class="footerbar__status" :class="`footerbar__status--${statusTone}`">

@@ -235,6 +235,7 @@ function createMemorySettingsStore(patch: Partial<LauncherSettings>): SettingsSt
 		wowPath: '',
 		closeOnLaunch: false,
 		checkClientBeforeLaunch: true,
+		autoUpdateAddons: false,
 		allowPrereleaseUpdates: false,
 		...patch
 	}

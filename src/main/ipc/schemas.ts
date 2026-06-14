@@ -20,6 +20,7 @@ export const launcherSettingsSchema = z.object({
 	wowPath: z.string(),
 	closeOnLaunch: z.boolean(),
 	checkClientBeforeLaunch: z.boolean(),
+	autoUpdateAddons: z.boolean(),
 	allowPrereleaseUpdates: z.boolean()
 })
 
@@ -28,6 +29,7 @@ export const launcherSettingsPatchSchema = z
 		wowPath: z.string().optional(),
 		closeOnLaunch: z.boolean().optional(),
 		checkClientBeforeLaunch: z.boolean().optional(),
+		autoUpdateAddons: z.boolean().optional(),
 		allowPrereleaseUpdates: z.boolean().optional()
 	})
 	.strict()
@@ -215,6 +217,8 @@ export const addonCatalogEntrySchema = z.object({
 	source: addonCatalogSourceSchema,
 	name: z.string(),
 	versionUrl: z.string().optional(),
+	versionFolder: z.string().optional(),
+	versionFile: z.string().optional(),
 	branch: z.string(),
 	folders: z.array(z.string()),
 	description: z.string().optional(),
@@ -280,6 +284,8 @@ export const addCustomAddonInputSchema = z
 		branch: z.string().trim().optional(),
 		folders: z.array(z.string().trim().min(1)).optional(),
 		versionUrl: z.string().trim().url().optional(),
+		versionFolder: z.string().trim().min(1).optional(),
+		versionFile: z.string().trim().min(1).optional(),
 		description: z.string().trim().optional()
 	})
 	.strict()

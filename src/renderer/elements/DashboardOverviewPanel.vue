@@ -16,7 +16,9 @@ const props = defineProps<{
 	fpsPatchStatus: FpsPatchStatus | null
 	clientCheckResult: ClientCheckResult | null
 	latestBackup: WtfBackupSummary | null
-	addonsUpdated: boolean | null
+	addonUpdateCount: number
+	addonsChecked: boolean
+	checkingAddons: boolean
 	checkingClient: boolean
 	installingFpsPatch: boolean
 	creatingBackup: boolean
@@ -52,6 +54,20 @@ function clientLabel(): string {
 		missing: props.clientCheckResult.missing,
 		outdated: props.clientCheckResult.outdated
 	})
+}
+
+function addonsTone(): 'neutral' | 'ok' | 'warning' {
+	if (!props.addonsChecked) return 'neutral'
+	return props.addonUpdateCount > 0 ? 'warning' : 'ok'
+}
+
+function addonsLabel(): string {
+	if (!props.addonsChecked) return t('dashboard.addons.unknown')
+	if (props.addonUpdateCount > 0) {
+		return t('dashboard.addons.outdated', { count: props.addonUpdateCount })
+	}
+
+	return t('dashboard.addons.ok')
 }
 
 function formatBackupDate(backup: WtfBackupSummary | null): string {
@@ -104,20 +120,28 @@ function formatBackupDate(backup: WtfBackupSummary | null): string {
 
 			<div class="info-tile">
 				<span class="tile-label">{{ t('dashboard.tile.addons') }}</span>
-				<strong>
+				<strong>{{ addonsLabel() }}</strong>
+				<StatusBadge :tone="addonsTone()">
 					{{
-						addonsUpdated === true
-							? t('dashboard.addons.ok')
-							: t('dashboard.addons.unknown')
+						addonsChecked
+							? t('dashboard.status.checked')
+							: t('dashboard.status.notChecked')
 					}}
-				</strong>
-				<StatusBadge :tone="addonsUpdated === true ? 'ok' : 'neutral'">
-					{{ t('dashboard.status.inProgress') }}
 				</StatusBadge>
 				<div class="tile-actions">
-					<BaseButton variant="secondary" @click="$emit('openAddons')">
+					<BaseButton
+						variant="secondary"
+						:disabled="checkingAddons"
+						@click="$emit('openAddons')"
+					>
 						<Puzzle :size="16" />
-						{{ t('footer.checkAddons') }}
+						{{
+							checkingAddons
+								? t('footer.checkingAddons')
+								: addonUpdateCount > 0
+									? t('footer.checkAddonsCount', { count: addonUpdateCount })
+									: t('footer.checkAddons')
+						}}
 					</BaseButton>
 				</div>
 			</div>

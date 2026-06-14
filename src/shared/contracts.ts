@@ -81,6 +81,7 @@ export interface LauncherSettings {
 	wowPath: string
 	closeOnLaunch: boolean
 	checkClientBeforeLaunch: boolean
+	autoUpdateAddons: boolean
 	allowPrereleaseUpdates: boolean
 }
 
@@ -270,6 +271,8 @@ export interface AddonCatalogEntry {
 	source: AddonCatalogSource
 	name: string
 	versionUrl?: string
+	versionFolder?: string
+	versionFile?: string
 	branch: string
 	folders: string[]
 	description?: string
@@ -330,6 +333,8 @@ export interface AddCustomAddonInput {
 	branch?: string
 	folders?: string[]
 	versionUrl?: string
+	versionFolder?: string
+	versionFile?: string
 	description?: string
 }
 

@@ -23,6 +23,8 @@ export function createCustomAddonEntry(
 		source: 'custom',
 		name: input.name.trim(),
 		versionUrl: normalizeOptional(input.versionUrl),
+		versionFolder: normalizeOptional(input.versionFolder),
+		versionFile: normalizeOptional(input.versionFile),
 		branch,
 		folders: folders ?? [],
 		description: normalizeOptional(input.description),

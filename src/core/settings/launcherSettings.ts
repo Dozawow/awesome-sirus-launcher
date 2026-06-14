@@ -5,6 +5,7 @@ export const defaultLauncherSettings: LauncherSettings = {
 	wowPath: '',
 	closeOnLaunch: false,
 	checkClientBeforeLaunch: false,
+	autoUpdateAddons: false,
 	allowPrereleaseUpdates: false
 }
 
@@ -15,6 +16,7 @@ export function normalizeLauncherSettings(value: unknown): LauncherSettings {
 		wowPath: normalizeWowPath(value.wowPath),
 		closeOnLaunch: value.closeOnLaunch === true,
 		checkClientBeforeLaunch: value.checkClientBeforeLaunch === true,
+		autoUpdateAddons: value.autoUpdateAddons === true,
 		allowPrereleaseUpdates: value.allowPrereleaseUpdates === true
 	}
 }

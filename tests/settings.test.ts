@@ -15,6 +15,7 @@ describe('launcher settings', () => {
 			wowPath: '  F:/games/sirus/World of Warcraft Sirus  ',
 			closeOnLaunch: true,
 			checkClientBeforeLaunch: false,
+			autoUpdateAddons: true,
 			allowPrereleaseUpdates: true,
 			random: 'ignored'
 		})
@@ -22,6 +23,7 @@ describe('launcher settings', () => {
 		expect(settings.wowPath).toMatch(/F:[\\/]+games[\\/]+sirus[\\/]+World of Warcraft Sirus$/)
 		expect(settings.closeOnLaunch).toBe(true)
 		expect(settings.checkClientBeforeLaunch).toBe(false)
+		expect(settings.autoUpdateAddons).toBe(true)
 		expect(settings.allowPrereleaseUpdates).toBe(true)
 	})
 
@@ -31,15 +33,18 @@ describe('launcher settings', () => {
 				wowPath: 'F:/games/sirus',
 				closeOnLaunch: false,
 				checkClientBeforeLaunch: true,
+				autoUpdateAddons: false,
 				allowPrereleaseUpdates: false
 			},
 			{
-				closeOnLaunch: true
+				closeOnLaunch: true,
+				autoUpdateAddons: true
 			}
 		)
 
 		expect(settings.closeOnLaunch).toBe(true)
 		expect(settings.checkClientBeforeLaunch).toBe(true)
+		expect(settings.autoUpdateAddons).toBe(true)
 		expect(settings.allowPrereleaseUpdates).toBe(false)
 	})
 })

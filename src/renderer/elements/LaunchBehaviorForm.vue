@@ -9,7 +9,13 @@ defineProps<{
 }>()
 
 defineEmits<{
-	toggle: [key: 'closeOnLaunch' | 'checkClientBeforeLaunch' | 'allowPrereleaseUpdates']
+	toggle: [
+		key:
+			| 'closeOnLaunch'
+			| 'checkClientBeforeLaunch'
+			| 'autoUpdateAddons'
+			| 'allowPrereleaseUpdates'
+	]
 }>()
 
 const { t } = useLocale()
@@ -26,6 +32,11 @@ const { t } = useLocale()
 			:checked="settings.checkClientBeforeLaunch"
 			:label="t('launch.checkClient')"
 			@toggle="$emit('toggle', 'checkClientBeforeLaunch')"
+		/>
+		<ToggleField
+			:checked="settings.autoUpdateAddons"
+			:label="t('launch.autoUpdateAddons')"
+			@toggle="$emit('toggle', 'autoUpdateAddons')"
 		/>
 		<ToggleField
 			:checked="settings.closeOnLaunch"

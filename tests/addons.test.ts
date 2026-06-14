@@ -65,6 +65,35 @@ describe('addons core', () => {
 		])
 		expect(epgpAuction?.folders).toEqual(['EPGP_Auction'])
 	})
+
+	it('defines explicit version toc paths for DBM and Details packages', () => {
+		const addons = (addonCatalog as { addons: AddonCatalogEntry[] }).addons
+		const dbm = addons.find((addon) => addon.id === 'community:dbm')
+		const details = addons.find((addon) => addon.id === 'community:details')
+
+		expect(dbm).toMatchObject({
+			versionFolder: 'DBM-Core',
+			versionFile: 'DBM-Core.toc'
+		})
+		expect(dbm?.folders).not.toContain("DBM-Tol'GarodePrison")
+		expect(dbm?.folders).not.toContain('DBM-BronzeSanctuary')
+		expect(details).toMatchObject({
+			versionUrl:
+				'https://raw.githubusercontent.com/fxpw/Details_Sirus/master/Details/Details.toc',
+			versionFolder: 'Details',
+			versionFile: 'Details.toc'
+		})
+		expect(details?.folders).toEqual([
+			'Details',
+			'Details_3DModelsPaths',
+			'Details_ChartViewer',
+			'Details_DataStorage',
+			'Details_DeathGraphs',
+			'Details_EncounterDetails',
+			'Details_TimeLine',
+			'Details_TinyThreat'
+		])
+	})
 })
 
 describe('addon service', () => {
@@ -175,6 +204,44 @@ describe('addon service', () => {
 		}
 	})
 
+	it('uses explicit version folder and toc file for DBM packages', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response('## Version: 9.2.126\n'))
+		)
+
+		try {
+			const root = await mkdtemp(join(tmpdir(), 'sirus-addons-dbm-version-'))
+			const wowPath = join(root, 'wow')
+			const addonsPath = join(wowPath, 'Interface', 'AddOns')
+			await mkdir(join(wowPath, 'Data'), { recursive: true })
+			await mkdir(join(wowPath, 'Interface'), { recursive: true })
+			await mkdir(join(wowPath, 'WTF'), { recursive: true })
+			await mkdir(join(addonsPath, 'DBM-AQ20'), { recursive: true })
+			await mkdir(join(addonsPath, 'DBM-Core'), { recursive: true })
+			await writeFile(join(wowPath, 'run.exe'), '')
+			await writeFile(join(addonsPath, 'DBM-AQ20', 'DBM-AQ20.toc'), '## Interface: 30300\n')
+			await writeFile(join(addonsPath, 'DBM-Core', 'DBM-Core.toc'), '## Version: 9.2.123\n')
+
+			const service = createAddonService(
+				() => root,
+				createMemorySettingsStore({ wowPath }),
+				createMemorySecretStore(),
+				async () => undefined,
+				async () => undefined
+			)
+
+			const checked = await service.check()
+			const dbm = checked.addons.find((addon) => addon.name === 'DBM')
+
+			expect(dbm?.installedVersion).toBe('9.2.123')
+			expect(dbm?.remoteVersion).toBe('9.2.126')
+			expect(dbm?.status).toBe('outdated')
+		} finally {
+			vi.unstubAllGlobals()
+		}
+	})
+
 	it('exports and imports per-user custom addons without duplicates', async () => {
 		const sourceRoot = await mkdtemp(join(tmpdir(), 'sirus-addons-export-'))
 		const targetRoot = await mkdtemp(join(tmpdir(), 'sirus-addons-import-'))
@@ -216,6 +283,7 @@ function createMemorySettingsStore(patch: Partial<LauncherSettings>): SettingsSt
 		wowPath: '',
 		closeOnLaunch: false,
 		checkClientBeforeLaunch: true,
+		autoUpdateAddons: false,
 		allowPrereleaseUpdates: false,
 		...patch
 	}

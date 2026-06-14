@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import type {
 	AccountListResult,
+	AddonsListResult,
 	AppInfo,
 	ClientCheckResult,
 	ClientPatchFileInput,
@@ -71,6 +72,7 @@ const clientManifestLoading = ref(false)
 const clientDownloadingKey = ref('')
 const clientDownloadingAll = ref(false)
 const addonChecking = ref(false)
+const addonCheckResult = ref<AddonsListResult | null>(null)
 const githubToken = ref('')
 const error = ref('')
 const notice = ref('')
@@ -91,9 +93,13 @@ const activeEyebrow = computed(() => t(sectionEyebrowKeys[activeSection.value]))
 const clientProblemCount = computed(
 	() => (clientCheckResult.value?.missing ?? 0) + (clientCheckResult.value?.outdated ?? 0)
 )
+const addonUpdateCount = computed(
+	() => addonCheckResult.value?.addons.filter((addon) => addon.status === 'outdated').length ?? 0
+)
 const footerStatusTone = computed(() => {
 	if (error.value) return 'error'
 	if (clientProblemCount.value > 0) return 'warning'
+	if (addonUpdateCount.value > 0) return 'warning'
 	if (notice.value || clientCheckResult.value) return 'ok'
 	return 'neutral'
 })
@@ -110,6 +116,11 @@ const footerStatusText = computed(() => {
 	if (gameLaunching.value) return t('footer.status.launchingGame')
 	if (wtfBackupCreating.value) return t('footer.status.wtfBackup')
 	if (notice.value) return notice.value
+	if (addonCheckResult.value) {
+		return addonUpdateCount.value > 0
+			? t('footer.status.addonsOutdated', { count: addonUpdateCount.value })
+			: t('footer.status.addonsOk', { total: addonCheckResult.value.total })
+	}
 	if (clientCheckResult.value) {
 		return clientProblemCount.value > 0
 			? t('footer.status.clientProblems', {
@@ -136,7 +147,10 @@ onMounted(async () => {
 		wowPath.value = settings.value.wowPath
 		if (wowPath.value) {
 			await validateWowPath()
-			if (wowValidation.value?.valid) await checkClient()
+			if (wowValidation.value?.valid) {
+				await checkClient()
+				await scanAddonsOnStartup()
+			}
 		}
 	} catch (err) {
 		error.value = err instanceof Error ? err.message : t('app.initError')
@@ -180,7 +194,7 @@ async function saveWowPath(): Promise<void> {
 }
 
 async function toggleSetting(
-	key: 'closeOnLaunch' | 'checkClientBeforeLaunch' | 'allowPrereleaseUpdates'
+	key: 'closeOnLaunch' | 'checkClientBeforeLaunch' | 'autoUpdateAddons' | 'allowPrereleaseUpdates'
 ): Promise<void> {
 	if (!settings.value) return
 	settings.value = await launcherApi.settings.save({ [key]: !settings.value[key] })
@@ -438,9 +452,30 @@ function navigate(section: string): void {
 
 async function checkAddons(): Promise<void> {
 	navigate('addons')
+	await runAddonCheck()
+}
+
+async function scanAddonsOnStartup(): Promise<void> {
+	await runAddonCheck()
+	if (!settings.value?.autoUpdateAddons || addonUpdateCount.value === 0) return
+
+	addonChecking.value = true
+	try {
+		const result = await launcherApi.addons.updateAll()
+		notice.value = t('addons.updatedAll', { total: result.total })
+		addonCheckResult.value = await launcherApi.addons.check()
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : t('addons.error')
+	} finally {
+		addonChecking.value = false
+	}
+}
+
+async function runAddonCheck(): Promise<void> {
 	addonChecking.value = true
 	try {
 		const result = await launcherApi.addons.check()
+		addonCheckResult.value = result
 		notice.value = t('footer.status.addonsChecked', { total: result.total })
 	} catch (err) {
 		error.value = err instanceof Error ? err.message : t('addons.error')
@@ -479,7 +514,9 @@ function selectClientPatchSource(sourceUrl: string): void {
 				:fps-patch-status="fpsPatchStatus"
 				:client-check-result="clientCheckResult"
 				:latest-backup="latestBackup"
-				:addons-updated="null"
+				:addon-update-count="addonUpdateCount"
+				:addons-checked="Boolean(addonCheckResult)"
+				:checking-addons="addonChecking"
 				:checking-client="clientChecking"
 				:installing-fps-patch="fpsPatchInstalling"
 				:creating-backup="wtfBackupCreating"
@@ -555,6 +592,7 @@ function selectClientPatchSource(sourceUrl: string): void {
 				clientChecking || clientDownloadingAll || Boolean(clientDownloadingKey)
 			"
 			:checking-addons="addonChecking"
+			:addon-update-count="addonUpdateCount"
 			:can-launch-game="Boolean(wowValidation?.valid)"
 			:launching-game="gameLaunching"
 			:status-text="footerStatusText"
