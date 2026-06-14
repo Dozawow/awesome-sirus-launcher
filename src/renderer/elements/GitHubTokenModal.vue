@@ -44,6 +44,28 @@ const { t } = useLocale()
 				@update:model-value="$emit('update:token', $event)"
 			/>
 
+			<section class="token-guide">
+				<div>
+					<p class="token-guide__title">{{ t('token.guideTitle') }}</p>
+					<ol>
+						<li>{{ t('token.guideStepOpen') }}</li>
+						<li>{{ t('token.guideStepOwner') }}</li>
+						<li>{{ t('token.guideStepRepos') }}</li>
+						<li>{{ t('token.guideStepPermissions') }}</li>
+						<li>{{ t('token.guideStepGenerate') }}</li>
+					</ol>
+					<p class="token-guide__note">{{ t('token.guideWarning') }}</p>
+				</div>
+				<a
+					class="token-guide__link"
+					href="https://github.com/settings/personal-access-tokens/new?name=Awesome%20Sirus%20Launcher&description=Higher%20rate%20limit%20for%20public%20addon%20downloads&expires_in=90"
+					target="_blank"
+					rel="noreferrer"
+				>
+					{{ t('token.guideOpenGitHub') }}
+				</a>
+			</section>
+
 			<p v-if="error" class="error">{{ error }}</p>
 
 			<div class="modal-actions">

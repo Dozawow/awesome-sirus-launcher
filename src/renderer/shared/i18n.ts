@@ -160,6 +160,17 @@ const messages = {
 		'token.quickTitle': 'Быстрый token',
 		'token.description':
 			'Опционально нужен для больших лимитов при скачивании аддонов. Сохраненное значение не показывается.',
+		'token.guideTitle': 'Как создать token для публичных аддонов',
+		'token.guideStepOpen': 'Открой GitHub fine-grained personal access token.',
+		'token.guideStepOwner': 'Resource owner: выбери отдельный GitHub-аккаунт для скачивания.',
+		'token.guideStepRepos':
+			'Repository access: оставь доступ только к публичным репозиториям, приватные не выбирай.',
+		'token.guideStepPermissions':
+			'Permissions: ничего лишнего не включай. Для публичных zip-архивов token нужен только для лимитов.',
+		'token.guideStepGenerate': 'Сгенерируй token, скопируй его один раз и вставь сюда.',
+		'token.guideWarning':
+			'Не включай repo, Contents, admin, write, workflow, delete и другие права. Если позже добавишь приватные аддоны, тогда отдельно дай Contents: Read-only только нужным repo.',
+		'token.guideOpenGitHub': 'Открыть создание token',
 		'token.placeholder': 'github_pat_...',
 		'token.save': 'Сохранить',
 		'token.clear': 'Удалить',
@@ -360,6 +371,17 @@ const messages = {
 		'token.quickTitle': 'Quick token',
 		'token.description':
 			'Optional token for higher addon download limits. The saved value is never shown.',
+		'token.guideTitle': 'How to create a token for public addons',
+		'token.guideStepOpen': 'Open GitHub fine-grained personal access token.',
+		'token.guideStepOwner': 'Resource owner: choose a separate GitHub account for downloads.',
+		'token.guideStepRepos':
+			'Repository access: keep access limited to public repositories and do not select private repos.',
+		'token.guideStepPermissions':
+			'Permissions: do not enable extra permissions. For public source zips the token is only for rate limits.',
+		'token.guideStepGenerate': 'Generate the token, copy it once, and paste it here.',
+		'token.guideWarning':
+			'Do not enable repo, Contents, admin, write, workflow, delete, or other permissions. If private addons are added later, grant Contents: Read-only only to those repos.',
+		'token.guideOpenGitHub': 'Open token creation',
 		'token.placeholder': 'github_pat_...',
 		'token.save': 'Save',
 		'token.clear': 'Clear',
