@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+	clientPatchManifestUrls,
 	createClientPatchTargetPath,
 	normalizeClientPatchManifest
 } from '../src/core/clientPatches/clientPatches'
@@ -135,6 +136,32 @@ describe('client patch service', () => {
 
 		expect(result.file.status).toBe('ok')
 		expect(await readFile(join(wowPath, 'Data', 'patch.mpq'), 'utf8')).toBe(fileContent)
+	})
+
+	it('uses selected manifest source without fallback', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'sirus-client-source-'))
+		const wowPath = join(root, 'wow')
+		const selectedSourceUrl = clientPatchManifestUrls[1]
+		const fetchCalls: string[] = []
+
+		const service = createClientPatchService(
+			createMemorySettingsStore({ wowPath }),
+			async (url) => {
+				fetchCalls.push(url)
+				return {
+					patches: [createManifestFile('patch.mpq', '/Data/', 'patched')]
+				}
+			},
+			async () => '6149eaf8791547a8f87454d687a46b29',
+			async () => undefined,
+			() => root
+		)
+
+		const manifest = await service.list({ sourceUrl: selectedSourceUrl })
+
+		expect(fetchCalls).toEqual([selectedSourceUrl])
+		expect(manifest.sourceUrl).toBe(selectedSourceUrl)
+		expect(manifest.availableSourceUrls).toEqual([...clientPatchManifestUrls])
 	})
 
 	it('reuses cached md5 for unchanged files on repeated checks', async () => {

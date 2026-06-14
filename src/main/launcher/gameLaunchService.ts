@@ -4,6 +4,7 @@ import type { SettingsStore } from '@main/settings/fileSettingsStore'
 import { validateWowPath } from '../../core/wow/wowPaths'
 
 export type LaunchProcess = (executablePath: string, cwd: string) => Promise<void>
+export type BeforeGameLaunch = (wowPath: string) => Promise<void>
 
 export interface GameLaunchService {
 	launch(): Promise<GameLaunchResult>
@@ -11,7 +12,8 @@ export interface GameLaunchService {
 
 export function createGameLaunchService(
 	settingsStore: SettingsStore,
-	launchProcess: LaunchProcess
+	launchProcess: LaunchProcess,
+	beforeLaunch: BeforeGameLaunch = async () => undefined
 ): GameLaunchService {
 	return {
 		async launch() {
@@ -23,6 +25,7 @@ export function createGameLaunchService(
 				throw new Error(`Клиент WoW не готов: ${validation.missing.join(', ')}`)
 			}
 
+			await beforeLaunch(settings.wowPath)
 			await launchProcess(validation.executablePath, dirname(validation.executablePath))
 
 			return {

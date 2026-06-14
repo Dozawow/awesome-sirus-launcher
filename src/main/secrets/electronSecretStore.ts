@@ -14,6 +14,16 @@ export function createElectronSecretStore(getUserDataPath: () => string): Secret
 			const data = await readSecrets(getFilePath())
 			return typeof data[key] === 'string'
 		},
+		async get(key) {
+			const data = await readSecrets(getFilePath())
+			const value = data[key]
+			if (typeof value !== 'string') return undefined
+			if (!safeStorage.isEncryptionAvailable()) {
+				throw new Error('Защищенное хранилище недоступно в этой системе')
+			}
+
+			return safeStorage.decryptString(Buffer.from(value, 'base64'))
+		},
 		async set(key, value) {
 			if (!safeStorage.isEncryptionAvailable()) {
 				throw new Error('Защищенное хранилище недоступно в этой системе')

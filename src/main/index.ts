@@ -4,6 +4,7 @@ import { app, BrowserWindow, dialog, shell, type OpenDialogOptions } from 'elect
 import { is } from '@electron-toolkit/utils'
 import { ipcChannels } from '@shared/contracts'
 import { updateAccountConfigText } from '@core/accounts/configWtf'
+import { createAccountService } from '@main/accounts/accountService'
 import { createWtfBackupService } from '@main/backup/wtfBackupService'
 import { createFileClientMd5Cache } from '@main/clientPatches/clientMd5Cache'
 import { createClientPatchService } from '@main/clientPatches/clientPatchService'
@@ -17,11 +18,14 @@ import { getPreloadPath } from '@main/windowPaths'
 import {
 	accountConfigInputSchema,
 	accountConfigPreviewSchema,
+	accountListResultSchema,
+	addAccountInputSchema,
 	appInfoSchema,
 	clientPatchDownloadAllResultSchema,
 	clientPatchDownloadResultSchema,
 	clientPatchFileInputSchema,
 	clientPatchManifestResultSchema,
+	clientPatchSourceInputSchema,
 	clientCheckResultSchema,
 	createWtfBackupResultSchema,
 	deleteWtfBackupResultSchema,
@@ -34,6 +38,7 @@ import {
 	launcherSettingsPatchSchema,
 	launcherSettingsSchema,
 	restoreWtfBackupResultSchema,
+	selectAccountInputSchema,
 	voidInputSchema,
 	voidOutputSchema,
 	wtfBackupActionInputSchema,
@@ -47,6 +52,7 @@ import { validateWowPath } from '@core/wow/wowPaths'
 
 const secretStore = createElectronSecretStore(() => app.getPath('userData'))
 const settingsStore = createFileSettingsStore(() => app.getPath('userData'))
+const accountService = createAccountService(() => app.getPath('userData'), secretStore)
 const wtfBackupService = createWtfBackupService(() => app.getPath('userData'), settingsStore)
 const fpsPatchService = createFpsPatchService(
 	() => app.getPath('userData'),
@@ -61,20 +67,24 @@ const clientPatchService = createClientPatchService(
 	() => app.getPath('temp'),
 	createFileClientMd5Cache(() => app.getPath('userData'))
 )
-const gameLaunchService = createGameLaunchService(settingsStore, async (executablePath, cwd) => {
-	const child = spawn(executablePath, [], {
-		cwd,
-		detached: true,
-		stdio: 'ignore',
-		windowsHide: false
-	})
-	child.unref()
-})
+const gameLaunchService = createGameLaunchService(
+	settingsStore,
+	async (executablePath, cwd) => {
+		const child = spawn(executablePath, [], {
+			cwd,
+			detached: true,
+			stdio: 'ignore',
+			windowsHide: false
+		})
+		child.unref()
+	},
+	(wowPath) => accountService.applySelectedToWowConfig(wowPath)
+)
 
 function createWindow(): void {
 	const mainWindow = new BrowserWindow({
-		width: 1180,
-		height: 760,
+		width: 1500,
+		height: 720,
 		minWidth: 980,
 		minHeight: 620,
 		show: false,
@@ -136,6 +146,27 @@ function registerIpcHandlers(): void {
 			await secretStore.delete('github-token')
 			return { configured: false }
 		}
+	)
+
+	registerIpcHandler(
+		ipcChannels.accounts.list,
+		voidInputSchema,
+		accountListResultSchema,
+		async () => accountService.list()
+	)
+
+	registerIpcHandler(
+		ipcChannels.accounts.add,
+		addAccountInputSchema,
+		accountListResultSchema,
+		async (input) => accountService.add(input)
+	)
+
+	registerIpcHandler(
+		ipcChannels.accounts.select,
+		selectAccountInputSchema,
+		accountListResultSchema,
+		async (input) => accountService.select(input)
 	)
 
 	registerIpcHandler(
@@ -231,16 +262,16 @@ function registerIpcHandlers(): void {
 
 	registerIpcHandler(
 		ipcChannels.client.list,
-		voidInputSchema,
+		clientPatchSourceInputSchema,
 		clientPatchManifestResultSchema,
-		async () => clientPatchService.list()
+		async (input) => clientPatchService.list(input)
 	)
 
 	registerIpcHandler(
 		ipcChannels.client.check,
-		voidInputSchema,
+		clientPatchSourceInputSchema,
 		clientCheckResultSchema,
-		async () => clientPatchService.check()
+		async (input) => clientPatchService.check(input)
 	)
 
 	registerIpcHandler(
@@ -252,9 +283,9 @@ function registerIpcHandlers(): void {
 
 	registerIpcHandler(
 		ipcChannels.client.downloadMissing,
-		voidInputSchema,
+		clientPatchSourceInputSchema,
 		clientPatchDownloadAllResultSchema,
-		async () => clientPatchService.downloadMissing()
+		async (input) => clientPatchService.downloadMissing(input)
 	)
 
 	registerIpcHandler(

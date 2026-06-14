@@ -43,6 +43,31 @@ describe('game launch service', () => {
 
 		await expect(service.launch()).rejects.toThrow('run.exe')
 	})
+
+	it('runs before-launch hook before starting run.exe', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'sirus-game-launch-account-'))
+		const wowPath = join(root, 'wow')
+		await mkdir(join(wowPath, 'Data'), { recursive: true })
+		await mkdir(join(wowPath, 'Interface'), { recursive: true })
+		await mkdir(join(wowPath, 'WTF'), { recursive: true })
+		await writeFile(join(wowPath, 'run.exe'), '')
+
+		const calls: string[] = []
+		const service = createGameLaunchService(
+			createMemorySettingsStore({ wowPath }),
+			async () => {
+				calls.push('launch')
+			},
+			async (nextWowPath) => {
+				expect(nextWowPath).toBe(wowPath)
+				calls.push('before')
+			}
+		)
+
+		await service.launch()
+
+		expect(calls).toEqual(['before', 'launch'])
+	})
 })
 
 function createMemorySettingsStore(patch: Partial<LauncherSettings>): SettingsStore {

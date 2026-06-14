@@ -59,6 +59,29 @@ export const accountConfigPreviewSchema = z.object({
 	touchedKeys: z.array(z.string())
 })
 
+export const accountSummarySchema = z.object({
+	id: z.string(),
+	login: z.string()
+})
+
+export const accountListResultSchema = z.object({
+	accounts: z.array(accountSummarySchema),
+	selectedAccountId: z.string().optional()
+})
+
+export const addAccountInputSchema = z
+	.object({
+		login: z.string().trim().min(1, 'Логин аккаунта пустой'),
+		password: z.string().min(1, 'Пароль аккаунта пустой')
+	})
+	.strict()
+
+export const selectAccountInputSchema = z
+	.object({
+		accountId: z.string().min(1)
+	})
+	.strict()
+
 export const wtfBackupSummarySchema = z.object({
 	id: z.string(),
 	fileName: z.string(),
@@ -136,6 +159,7 @@ export const clientPatchManifestFileSchema = z.object({
 export const clientPatchManifestResultSchema = z.object({
 	loadedAt: z.string(),
 	sourceUrl: z.string(),
+	availableSourceUrls: z.array(z.string()),
 	total: z.number(),
 	files: z.array(clientPatchManifestFileSchema)
 })
@@ -143,6 +167,7 @@ export const clientPatchManifestResultSchema = z.object({
 export const clientCheckResultSchema = z.object({
 	checkedAt: z.string(),
 	sourceUrl: z.string(),
+	availableSourceUrls: z.array(z.string()),
 	total: z.number(),
 	ok: z.number(),
 	missing: z.number(),
@@ -153,9 +178,17 @@ export const clientCheckResultSchema = z.object({
 export const clientPatchFileInputSchema = z
 	.object({
 		fileName: z.string().min(1),
-		relativePath: z.string()
+		relativePath: z.string(),
+		sourceUrl: z.string().optional()
 	})
 	.strict()
+
+export const clientPatchSourceInputSchema = z
+	.object({
+		sourceUrl: z.string().optional()
+	})
+	.strict()
+	.optional()
 
 export const clientPatchDownloadResultSchema = z.object({
 	downloadedAt: z.string(),

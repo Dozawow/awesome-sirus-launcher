@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { ZodError } from 'zod'
 import {
+	accountListResultSchema,
+	addAccountInputSchema,
 	clientCheckResultSchema,
 	createWtfBackupResultSchema,
 	deleteWtfBackupResultSchema,
@@ -11,10 +13,12 @@ import {
 	githubTokenInputSchema,
 	launcherSettingsPatchSchema,
 	restoreWtfBackupResultSchema,
+	selectAccountInputSchema,
 	wtfBackupActionInputSchema,
 	wtfBackupListSchema,
 	wowPathValidationSchema
 } from '../src/main/ipc/schemas'
+import { clientPatchSourceUrls } from '../src/shared/contracts'
 
 describe('ipc schemas', () => {
 	it('normalizes GitHub token input', () => {
@@ -23,6 +27,27 @@ describe('ipc schemas', () => {
 
 	it('rejects unknown settings keys', () => {
 		expect(() => launcherSettingsPatchSchema.parse({ unknown: true })).toThrow(ZodError)
+	})
+
+	it('validates account input and output shapes', () => {
+		const account = { id: 'account-1', login: 'fxpw' }
+
+		expect(addAccountInputSchema.parse({ login: ' fxpw ', password: 'secret' })).toEqual({
+			login: 'fxpw',
+			password: 'secret'
+		})
+		expect(selectAccountInputSchema.parse({ accountId: account.id })).toEqual({
+			accountId: account.id
+		})
+		expect(
+			accountListResultSchema.parse({
+				accounts: [account],
+				selectedAccountId: account.id
+			})
+		).toEqual({
+			accounts: [account],
+			selectedAccountId: account.id
+		})
 	})
 
 	it('validates wow path output shape', () => {
@@ -116,6 +141,7 @@ describe('ipc schemas', () => {
 			clientCheckResultSchema.parse({
 				checkedAt: '2026-06-14T10:20:30.000Z',
 				sourceUrl: 'https://s-patches.pro/api/client/patches',
+				availableSourceUrls: [...clientPatchSourceUrls],
 				total: 1,
 				ok: 1,
 				missing: 0,

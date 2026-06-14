@@ -1,10 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
 	AccountConfigInput,
+	AddAccountInput,
 	ClientPatchFileInput,
+	ClientPatchSourceInput,
 	GitHubTokenInput,
 	LauncherApi,
 	LauncherSettingsPatch,
+	SelectAccountInput,
 	WtfBackupActionInput
 } from '@shared/contracts'
 import { ipcChannels } from '@shared/contracts'
@@ -34,17 +37,26 @@ const api: LauncherApi = {
 			ipcRenderer.invoke(ipcChannels.backup.deleteWtf, input),
 		openWtfFolder: () => ipcRenderer.invoke(ipcChannels.backup.openWtfFolder)
 	},
+	accounts: {
+		list: () => ipcRenderer.invoke(ipcChannels.accounts.list),
+		add: (input: AddAccountInput) => ipcRenderer.invoke(ipcChannels.accounts.add, input),
+		select: (input: SelectAccountInput) =>
+			ipcRenderer.invoke(ipcChannels.accounts.select, input)
+	},
 	fpsPatch: {
 		getStatus: () => ipcRenderer.invoke(ipcChannels.fpsPatch.getStatus),
 		install: () => ipcRenderer.invoke(ipcChannels.fpsPatch.install),
 		delete: () => ipcRenderer.invoke(ipcChannels.fpsPatch.delete)
 	},
 	client: {
-		list: () => ipcRenderer.invoke(ipcChannels.client.list),
-		check: () => ipcRenderer.invoke(ipcChannels.client.check),
+		list: (input?: ClientPatchSourceInput) =>
+			ipcRenderer.invoke(ipcChannels.client.list, input),
+		check: (input?: ClientPatchSourceInput) =>
+			ipcRenderer.invoke(ipcChannels.client.check, input),
 		downloadFile: (input: ClientPatchFileInput) =>
 			ipcRenderer.invoke(ipcChannels.client.downloadFile, input),
-		downloadMissing: () => ipcRenderer.invoke(ipcChannels.client.downloadMissing)
+		downloadMissing: (input?: ClientPatchSourceInput) =>
+			ipcRenderer.invoke(ipcChannels.client.downloadMissing, input)
 	},
 	wow: {
 		validatePath: (wowPath: string) =>

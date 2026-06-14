@@ -20,6 +20,11 @@ export const ipcChannels = {
 		deleteWtf: 'backup:delete-wtf',
 		openWtfFolder: 'backup:open-wtf-folder'
 	},
+	accounts: {
+		list: 'accounts:list',
+		add: 'accounts:add',
+		select: 'accounts:select'
+	},
 	fpsPatch: {
 		getStatus: 'fps-patch:get-status',
 		install: 'fps-patch:install',
@@ -37,6 +42,12 @@ export const ipcChannels = {
 		launchGame: 'wow:launch-game'
 	}
 } as const
+
+export const clientPatchSourceUrls = [
+	'https://s-patches.pro/api/client/patches',
+	'https://s-patches.ru/api/client/patches',
+	'https://sirus.world/api/client/patches'
+] as const
 
 export interface AppInfo {
 	name: string
@@ -89,6 +100,25 @@ export interface AccountConfigPreview {
 	changed: boolean
 	text: string
 	touchedKeys: string[]
+}
+
+export interface AccountSummary {
+	id: string
+	login: string
+}
+
+export interface AccountListResult {
+	accounts: AccountSummary[]
+	selectedAccountId?: string
+}
+
+export interface AddAccountInput {
+	login: string
+	password: string
+}
+
+export interface SelectAccountInput {
+	accountId: string
 }
 
 export interface ReleaseAsset {
@@ -186,6 +216,7 @@ export interface ClientPatchManifestFile {
 export interface ClientPatchManifestResult {
 	loadedAt: string
 	sourceUrl: string
+	availableSourceUrls: string[]
 	total: number
 	files: ClientPatchManifestFile[]
 }
@@ -193,6 +224,7 @@ export interface ClientPatchManifestResult {
 export interface ClientCheckResult {
 	checkedAt: string
 	sourceUrl: string
+	availableSourceUrls: string[]
 	total: number
 	ok: number
 	missing: number
@@ -203,6 +235,11 @@ export interface ClientCheckResult {
 export interface ClientPatchFileInput {
 	fileName: string
 	relativePath: string
+	sourceUrl?: string
+}
+
+export interface ClientPatchSourceInput {
+	sourceUrl?: string
 }
 
 export interface ClientPatchDownloadResult {
@@ -237,16 +274,21 @@ export interface LauncherApi {
 		deleteWtf(input: WtfBackupActionInput): Promise<DeleteWtfBackupResult>
 		openWtfFolder(): Promise<void>
 	}
+	accounts: {
+		list(): Promise<AccountListResult>
+		add(input: AddAccountInput): Promise<AccountListResult>
+		select(input: SelectAccountInput): Promise<AccountListResult>
+	}
 	fpsPatch: {
 		getStatus(): Promise<FpsPatchStatus>
 		install(): Promise<FpsPatchInstallResult>
 		delete(): Promise<FpsPatchDeleteResult>
 	}
 	client: {
-		list(): Promise<ClientPatchManifestResult>
-		check(): Promise<ClientCheckResult>
+		list(input?: ClientPatchSourceInput): Promise<ClientPatchManifestResult>
+		check(input?: ClientPatchSourceInput): Promise<ClientCheckResult>
 		downloadFile(input: ClientPatchFileInput): Promise<ClientPatchDownloadResult>
-		downloadMissing(): Promise<ClientPatchDownloadAllResult>
+		downloadMissing(input?: ClientPatchSourceInput): Promise<ClientPatchDownloadAllResult>
 	}
 	wow: {
 		validatePath(wowPath: string): Promise<WowPathValidation>

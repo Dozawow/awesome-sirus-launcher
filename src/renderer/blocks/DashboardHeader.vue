@@ -1,20 +1,66 @@
 <script setup lang="ts">
-import type { GitHubTokenStatus } from '@shared/contracts'
-import BaseButton from '@renderer/components/BaseButton.vue'
+import { computed, ref } from 'vue'
+import { Check, ChevronDown, Plus } from '@lucide/vue'
+import type { AccountListResult, GitHubTokenStatus } from '@shared/contracts'
 import { localeLabels, type Locale } from '@renderer/shared/i18n'
 import { useLocale } from '@renderer/composables/useLocale'
 
-defineProps<{
+const props = defineProps<{
 	githubTokenStatus: GitHubTokenStatus
+	accounts: AccountListResult
 	title: string
 	eyebrow: string
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
 	openToken: []
+	openAccount: []
+	selectAccount: [accountId: string]
 }>()
 
 const { currentLocale, localeOptions, setLocale, t } = useLocale()
+const localeMenuOpen = ref(false)
+const accountMenuOpen = ref(false)
+
+const selectedAccount = computed(
+	() =>
+		props.accounts.accounts.find(
+			(account) => account.id === props.accounts.selectedAccountId
+		) ?? null
+)
+
+function closeAccountMenu(event: FocusEvent): void {
+	const nextTarget = event.relatedTarget
+	if (nextTarget instanceof Node && event.currentTarget instanceof Node) {
+		if (event.currentTarget.contains(nextTarget)) return
+	}
+
+	accountMenuOpen.value = false
+}
+
+function closeLocaleMenu(event: FocusEvent): void {
+	const nextTarget = event.relatedTarget
+	if (nextTarget instanceof Node && event.currentTarget instanceof Node) {
+		if (event.currentTarget.contains(nextTarget)) return
+	}
+
+	localeMenuOpen.value = false
+}
+
+function selectLocale(locale: Locale): void {
+	setLocale(locale)
+	localeMenuOpen.value = false
+}
+
+function selectAccount(accountId: string): void {
+	emit('selectAccount', accountId)
+	accountMenuOpen.value = false
+}
+
+function openAccountModal(): void {
+	emit('openAccount')
+	accountMenuOpen.value = false
+}
 </script>
 
 <template>
@@ -24,17 +70,31 @@ const { currentLocale, localeOptions, setLocale, t } = useLocale()
 			<h2>{{ title }}</h2>
 		</div>
 		<div class="topbar__actions">
-			<label class="locale-select">
-				{{ t('locale.label') }}
-				<select
-					:value="currentLocale"
-					@change="setLocale(($event.target as HTMLSelectElement).value as Locale)"
+			<div class="locale-select" @focusout="closeLocaleMenu">
+				<span>{{ t('locale.label') }}</span>
+				<button
+					class="locale-select__button"
+					type="button"
+					:aria-expanded="localeMenuOpen"
+					@click="localeMenuOpen = !localeMenuOpen"
 				>
-					<option v-for="locale in localeOptions" :key="locale" :value="locale">
-						{{ localeLabels[locale] }}
-					</option>
-				</select>
-			</label>
+					<span>{{ localeLabels[currentLocale] }}</span>
+					<ChevronDown :size="16" />
+				</button>
+				<div v-if="localeMenuOpen" class="locale-select__menu">
+					<button
+						v-for="locale in localeOptions"
+						:key="locale"
+						class="locale-select__option"
+						:class="{ 'locale-select__option--active': locale === currentLocale }"
+						type="button"
+						@click="selectLocale(locale)"
+					>
+						<span>{{ localeLabels[locale] }}</span>
+						<Check v-if="locale === currentLocale" :size="16" />
+					</button>
+				</div>
+			</div>
 			<button
 				class="token-status-button"
 				type="button"
@@ -49,6 +109,43 @@ const { currentLocale, localeOptions, setLocale, t } = useLocale()
 					})
 				}}
 			</button>
+			<div class="account-select" @focusout="closeAccountMenu">
+				<button
+					class="account-select__button"
+					type="button"
+					:aria-expanded="accountMenuOpen"
+					@click="accountMenuOpen = !accountMenuOpen"
+				>
+					<span>
+						{{ selectedAccount ? selectedAccount.login : t('account.select.empty') }}
+					</span>
+					<ChevronDown :size="16" />
+				</button>
+				<div v-if="accountMenuOpen" class="account-select__menu">
+					<button
+						v-for="account in accounts.accounts"
+						:key="account.id"
+						class="account-select__option"
+						:class="{
+							'account-select__option--active':
+								account.id === accounts.selectedAccountId
+						}"
+						type="button"
+						@click="selectAccount(account.id)"
+					>
+						<span>{{ account.login }}</span>
+						<Check v-if="account.id === accounts.selectedAccountId" :size="16" />
+					</button>
+					<button
+						class="account-select__option account-select__option--add"
+						type="button"
+						@click="openAccountModal"
+					>
+						<span>{{ t('account.add') }}</span>
+						<Plus :size="16" />
+					</button>
+				</div>
+			</div>
 		</div>
 	</header>
 </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { Check, ChevronDown } from '@lucide/vue'
 import type {
 	ClientCheckResult,
 	ClientPatchCheckFile,
@@ -14,13 +15,16 @@ import { useLocale } from '@renderer/composables/useLocale'
 const props = defineProps<{
 	manifest: ClientPatchManifestResult | null
 	result: ClientCheckResult | null
+	sourceUrls: string[]
+	selectedSourceUrl: string
 	checking: boolean
 	loadingManifest: boolean
 	downloadingKey: string
 	downloadingAll: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
+	selectSource: [sourceUrl: string]
 	load: []
 	check: []
 	downloadFile: [input: ClientPatchFileInput]
@@ -28,6 +32,7 @@ defineEmits<{
 }>()
 
 const { t } = useLocale()
+const sourceOpen = ref(false)
 
 const checkedFilesByKey = computed(() => {
 	const files = new Map<string, ClientPatchCheckFile>()
@@ -40,6 +45,15 @@ const tableFiles = computed(() => props.manifest?.files ?? props.result?.files ?
 
 const problemCount = computed(
 	() => (props.result?.files ?? []).filter((file) => file.status !== 'ok').length
+)
+const checkedCount = computed(() => props.result?.files.length ?? 0)
+const totalCount = computed(() => props.manifest?.total ?? props.result?.total ?? 0)
+const sourceDisabled = computed(
+	() =>
+		props.loadingManifest ||
+		props.checking ||
+		props.downloadingAll ||
+		Boolean(props.downloadingKey)
 )
 
 function statusLabelKey(status: ClientCheckResult['files'][number]['status']) {
@@ -62,7 +76,36 @@ function fileStatusLabel(file: Pick<ClientPatchFileInput, 'fileName' | 'relative
 }
 
 function fileSize(size: number): string {
-	return t('clientCheck.sizeKb', { size: Math.ceil(size / 1024) })
+	const megabytes = size / 1024 / 1024
+	if (megabytes >= 1024) return t('clientCheck.sizeGb', { size: formatSize(megabytes / 1024) })
+
+	return t('clientCheck.sizeMb', { size: formatSize(Math.max(megabytes, 0.01)) })
+}
+
+function formatSize(size: number): string {
+	return new Intl.NumberFormat(undefined, {
+		maximumFractionDigits: size >= 10 ? 1 : 2,
+		minimumFractionDigits: size >= 10 ? 0 : 2
+	}).format(size)
+}
+
+function toggleSourceMenu(): void {
+	if (sourceDisabled.value) return
+	sourceOpen.value = !sourceOpen.value
+}
+
+function selectSource(sourceUrl: string): void {
+	sourceOpen.value = false
+	emit('selectSource', sourceUrl)
+}
+
+function closeSourceMenu(event: FocusEvent): void {
+	const nextTarget = event.relatedTarget
+	if (nextTarget instanceof Node && event.currentTarget instanceof Node) {
+		if (event.currentTarget.contains(nextTarget)) return
+	}
+
+	sourceOpen.value = false
 }
 </script>
 
@@ -74,6 +117,34 @@ function fileSize(size: number): string {
 				<p>{{ t('clientCheck.description') }}</p>
 			</div>
 			<div class="panel-heading__actions">
+				<div class="source-select" @focusout="closeSourceMenu">
+					<span>{{ t('clientCheck.source') }}</span>
+					<button
+						class="source-select__button"
+						type="button"
+						:disabled="sourceDisabled"
+						:aria-expanded="sourceOpen"
+						@click="toggleSourceMenu"
+					>
+						<span>{{ selectedSourceUrl }}</span>
+						<ChevronDown :size="16" />
+					</button>
+					<div v-if="sourceOpen" class="source-select__menu">
+						<button
+							v-for="sourceUrl in sourceUrls"
+							:key="sourceUrl"
+							class="source-select__option"
+							:class="{
+								'source-select__option--active': sourceUrl === selectedSourceUrl
+							}"
+							type="button"
+							@click="selectSource(sourceUrl)"
+						>
+							<span>{{ sourceUrl }}</span>
+							<Check v-if="sourceUrl === selectedSourceUrl" :size="16" />
+						</button>
+					</div>
+				</div>
 				<BaseButton variant="secondary" :disabled="loadingManifest" @click="$emit('load')">
 					{{ loadingManifest ? t('clientCheck.loading') : t('clientCheck.load') }}
 				</BaseButton>
@@ -83,32 +154,21 @@ function fileSize(size: number): string {
 			</div>
 		</div>
 
-		<div v-if="manifest" class="result">
-			<StatusBadge>
-				{{ t('clientCheck.manifestLoaded', { total: manifest.total }) }}
-			</StatusBadge>
-			<p class="path-text">{{ manifest.sourceUrl }}</p>
-		</div>
-
-		<div v-if="result" class="result">
-			<StatusBadge :tone="result.missing === 0 && result.outdated === 0 ? 'ok' : 'warning'">
-				{{
-					result.missing === 0 && result.outdated === 0
-						? t('clientCheck.clean')
-						: t('clientCheck.problem')
-				}}
-			</StatusBadge>
-			<p>
-				{{
-					t('clientCheck.summary', {
-						total: result.total,
-						ok: result.ok,
-						missing: result.missing,
-						outdated: result.outdated
-					})
-				}}
-			</p>
-			<p class="path-text">{{ result.sourceUrl }}</p>
+		<div class="client-check-summary">
+			<div class="client-check-summary__status">
+				<StatusBadge :tone="result ? (problemCount === 0 ? 'ok' : 'warning') : undefined">
+					{{
+						t('clientCheck.checkedCount', { checked: checkedCount, total: totalCount })
+					}}
+				</StatusBadge>
+				<StatusBadge :tone="result ? (problemCount === 0 ? 'ok' : 'warning') : undefined">
+					{{ t('clientCheck.problemCount', { total: problemCount }) }}
+				</StatusBadge>
+			</div>
+			<div class="client-check-summary__meta">
+				<span>{{ t('clientCheck.manifestLoaded', { total: totalCount }) }}</span>
+				<span class="path-text">{{ manifest?.sourceUrl ?? selectedSourceUrl }}</span>
+			</div>
 		</div>
 
 		<div v-if="tableFiles.length > 0" class="client-files-table">
@@ -153,21 +213,6 @@ function fileSize(size: number): string {
 						downloadingKey === createFileKey(file)
 							? t('clientCheck.downloading')
 							: t('clientCheck.downloadFile')
-					}}
-				</BaseButton>
-			</div>
-			<div class="client-files-table__footer">
-				<span>{{ t('clientCheck.problemCount', { total: problemCount }) }}</span>
-				<BaseButton
-					:disabled="
-						!result || problemCount === 0 || downloadingAll || Boolean(downloadingKey)
-					"
-					@click="$emit('downloadMissing')"
-				>
-					{{
-						downloadingAll
-							? t('clientCheck.downloadingAll')
-							: t('clientCheck.downloadAll')
 					}}
 				</BaseButton>
 			</div>

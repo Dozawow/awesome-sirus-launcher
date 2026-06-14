@@ -60,6 +60,7 @@ function formatBackupDate(backup: WtfBackupSummary | null): string {
 	return new Intl.DateTimeFormat(undefined, {
 		day: '2-digit',
 		month: '2-digit',
+		year: 'numeric',
 		hour: '2-digit',
 		minute: '2-digit'
 	}).format(new Date(backup.createdAt))
@@ -102,6 +103,26 @@ function formatBackupDate(backup: WtfBackupSummary | null): string {
 			</div>
 
 			<div class="info-tile">
+				<span class="tile-label">{{ t('dashboard.tile.addons') }}</span>
+				<strong>
+					{{
+						addonsUpdated === true
+							? t('dashboard.addons.ok')
+							: t('dashboard.addons.unknown')
+					}}
+				</strong>
+				<StatusBadge :tone="addonsUpdated === true ? 'ok' : 'neutral'">
+					{{ t('dashboard.status.inProgress') }}
+				</StatusBadge>
+				<div class="tile-actions">
+					<BaseButton variant="secondary" @click="$emit('openAddons')">
+						<Puzzle :size="16" />
+						{{ t('footer.checkAddons') }}
+					</BaseButton>
+				</div>
+			</div>
+
+			<div class="info-tile">
 				<span class="tile-label">{{ t('dashboard.tile.fpsPatch') }}</span>
 				<strong>
 					{{
@@ -132,26 +153,6 @@ function formatBackupDate(backup: WtfBackupSummary | null): string {
 					>
 						<Trash2 :size="16" />
 						{{ t('fpsPatch.delete') }}
-					</BaseButton>
-				</div>
-			</div>
-
-			<div class="info-tile">
-				<span class="tile-label">{{ t('dashboard.tile.addons') }}</span>
-				<strong>
-					{{
-						addonsUpdated === true
-							? t('dashboard.addons.ok')
-							: t('dashboard.addons.unknown')
-					}}
-				</strong>
-				<StatusBadge :tone="addonsUpdated === true ? 'ok' : 'neutral'">
-					{{ t('dashboard.status.inProgress') }}
-				</StatusBadge>
-				<div class="tile-actions">
-					<BaseButton variant="secondary" @click="$emit('openAddons')">
-						<Puzzle :size="16" />
-						{{ t('footer.checkAddons') }}
 					</BaseButton>
 				</div>
 			</div>

@@ -7,7 +7,8 @@ import type {
 	ClientPatchDownloadResult,
 	ClientPatchFileInput,
 	ClientPatchManifestFile,
-	ClientPatchManifestResult
+	ClientPatchManifestResult,
+	ClientPatchSourceInput
 } from '@shared/contracts'
 import type { SettingsStore } from '@main/settings/fileSettingsStore'
 import {
@@ -43,10 +44,10 @@ export const emptyClientMd5Cache: ClientMd5Cache = {
 }
 
 export interface ClientPatchService {
-	list(): Promise<ClientPatchManifestResult>
-	check(): Promise<ClientCheckResult>
+	list(input?: ClientPatchSourceInput): Promise<ClientPatchManifestResult>
+	check(input?: ClientPatchSourceInput): Promise<ClientCheckResult>
 	downloadFile(input: ClientPatchFileInput): Promise<ClientPatchDownloadResult>
-	downloadMissing(): Promise<ClientPatchDownloadAllResult>
+	downloadMissing(input?: ClientPatchSourceInput): Promise<ClientPatchDownloadAllResult>
 }
 
 export function createClientPatchService(
@@ -58,21 +59,22 @@ export function createClientPatchService(
 	md5Cache: ClientMd5Cache = emptyClientMd5Cache
 ): ClientPatchService {
 	return {
-		async list() {
+		async list(input) {
 			const settings = await getSettingsWithWowPath(settingsStore)
-			const manifest = await fetchManifestWithFallback(fetchJson)
+			const manifest = await fetchManifest(fetchJson, input?.sourceUrl)
 			const files = manifest.patches.map((patch) => toManifestFile(settings.wowPath, patch))
 
 			return {
 				loadedAt: new Date().toISOString(),
 				sourceUrl: manifest.sourceUrl,
+				availableSourceUrls: [...clientPatchManifestUrls],
 				total: files.length,
 				files
 			}
 		},
-		async check() {
+		async check(input) {
 			const settings = await getSettingsWithWowPath(settingsStore)
-			const manifest = await fetchManifestWithFallback(fetchJson)
+			const manifest = await fetchManifest(fetchJson, input?.sourceUrl)
 			const files = await Promise.all(
 				manifest.patches.map((patch) =>
 					checkPatchFile(settings.wowPath, patch, hashFile, md5Cache)
@@ -82,6 +84,7 @@ export function createClientPatchService(
 			return {
 				checkedAt: new Date().toISOString(),
 				sourceUrl: manifest.sourceUrl,
+				availableSourceUrls: [...clientPatchManifestUrls],
 				total: files.length,
 				...countPatchStatuses(files),
 				files
@@ -89,7 +92,7 @@ export function createClientPatchService(
 		},
 		async downloadFile(input) {
 			const settings = await getSettingsWithWowPath(settingsStore)
-			const manifest = await fetchManifestWithFallback(fetchJson)
+			const manifest = await fetchManifest(fetchJson, input.sourceUrl)
 			const patch = findManifestPatch(manifest.patches, input)
 			const file = await downloadAndVerifyPatch(
 				settings.wowPath,
@@ -105,9 +108,9 @@ export function createClientPatchService(
 				file
 			}
 		},
-		async downloadMissing() {
+		async downloadMissing(input) {
 			const settings = await getSettingsWithWowPath(settingsStore)
-			const manifest = await fetchManifestWithFallback(fetchJson)
+			const manifest = await fetchManifest(fetchJson, input?.sourceUrl)
 			const checkedFiles = await Promise.all(
 				manifest.patches.map((patch) =>
 					checkPatchFile(settings.wowPath, patch, hashFile, md5Cache)
@@ -332,6 +335,25 @@ function countPatchStatuses(files: ClientCheckResult['files']) {
 
 function createPatchKey(relativePath: string, fileName: string): string {
 	return `${relativePath}\0${fileName}`
+}
+
+async function fetchManifest(fetchJson: FetchJson, sourceUrl?: string) {
+	if (sourceUrl) return fetchManifestFromSource(fetchJson, sourceUrl)
+
+	return fetchManifestWithFallback(fetchJson)
+}
+
+async function fetchManifestFromSource(fetchJson: FetchJson, sourceUrl: string) {
+	if (!clientPatchManifestUrls.includes(sourceUrl as (typeof clientPatchManifestUrls)[number])) {
+		throw new Error('Неизвестный источник manifest клиента')
+	}
+
+	const raw = await fetchJson(sourceUrl)
+
+	return {
+		sourceUrl,
+		patches: normalizeClientPatchManifest(raw)
+	}
 }
 
 async function fetchManifestWithFallback(fetchJson: FetchJson) {

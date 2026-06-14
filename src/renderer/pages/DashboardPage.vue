@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type {
+	AccountListResult,
 	AppInfo,
 	ClientCheckResult,
 	ClientPatchFileInput,
@@ -11,6 +12,8 @@ import type {
 	WowPathValidation,
 	WtfBackupSummary
 } from '@shared/contracts'
+import { clientPatchSourceUrls } from '@shared/contracts'
+import AccountModal from '@renderer/elements/AccountModal.vue'
 import AddonsPanel from '@renderer/elements/AddonsPanel.vue'
 import DashboardFooter from '@renderer/blocks/DashboardFooter.vue'
 import AppSidebar from '@renderer/blocks/AppSidebar.vue'
@@ -51,6 +54,7 @@ const sectionEyebrowKeys: Record<LauncherSection, MessageKey> = {
 
 const appInfo = ref<AppInfo | null>(null)
 const githubTokenStatus = ref<GitHubTokenStatus>({ configured: false })
+const accounts = ref<AccountListResult>({ accounts: [] })
 const settings = ref<LauncherSettings | null>(null)
 const wowPath = ref('')
 const wowValidation = ref<WowPathValidation | null>(null)
@@ -61,6 +65,7 @@ const fpsPatchInstalling = ref(false)
 const gameLaunching = ref(false)
 const clientCheckResult = ref<ClientCheckResult | null>(null)
 const clientPatchManifest = ref<ClientPatchManifestResult | null>(null)
+const selectedClientPatchSourceUrl = ref<string>(clientPatchSourceUrls[0])
 const clientChecking = ref(false)
 const clientManifestLoading = ref(false)
 const clientDownloadingKey = ref('')
@@ -70,6 +75,10 @@ const error = ref('')
 const notice = ref('')
 const tokenModalError = ref('')
 const tokenModalOpen = ref(false)
+const accountModalOpen = ref(false)
+const accountLogin = ref('')
+const accountPassword = ref('')
+const accountModalError = ref('')
 const activeSection = ref<LauncherSection>('dashboard')
 
 const { t } = useLocale()
@@ -118,11 +127,15 @@ onMounted(async () => {
 	try {
 		appInfo.value = await launcherApi.app.getInfo()
 		githubTokenStatus.value = await launcherApi.github.getTokenStatus()
+		accounts.value = await launcherApi.accounts.list()
 		settings.value = await launcherApi.settings.get()
 		backups.value = await launcherApi.backup.listWtf()
 		fpsPatchStatus.value = await launcherApi.fpsPatch.getStatus()
 		wowPath.value = settings.value.wowPath
-		if (wowPath.value) await validateWowPath()
+		if (wowPath.value) {
+			await validateWowPath()
+			if (wowValidation.value?.valid) await checkClient()
+		}
 	} catch (err) {
 		error.value = err instanceof Error ? err.message : t('app.initError')
 	}
@@ -200,6 +213,35 @@ async function clearGitHubToken(): Promise<void> {
 		const message = err instanceof Error ? err.message : t('token.clearError')
 		if (tokenModalOpen.value) tokenModalError.value = message
 		else error.value = message
+	}
+}
+
+async function addAccount(): Promise<void> {
+	error.value = ''
+	notice.value = ''
+	accountModalError.value = ''
+	try {
+		accounts.value = await launcherApi.accounts.add({
+			login: accountLogin.value,
+			password: accountPassword.value
+		})
+		accountLogin.value = ''
+		accountPassword.value = ''
+		accountModalOpen.value = false
+		notice.value = t('account.saved')
+	} catch (err) {
+		accountModalError.value = err instanceof Error ? err.message : t('account.saveError')
+	}
+}
+
+async function selectAccount(accountId: string): Promise<void> {
+	error.value = ''
+	notice.value = ''
+	try {
+		accounts.value = await launcherApi.accounts.select({ accountId })
+		notice.value = t('account.selected')
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : t('account.selectError')
 	}
 }
 
@@ -308,8 +350,14 @@ async function checkClient(): Promise<void> {
 	notice.value = ''
 	clientChecking.value = true
 	try {
-		if (!clientPatchManifest.value) clientPatchManifest.value = await launcherApi.client.list()
-		clientCheckResult.value = await launcherApi.client.check()
+		if (!clientPatchManifest.value) {
+			clientPatchManifest.value = await launcherApi.client.list({
+				sourceUrl: selectedClientPatchSourceUrl.value
+			})
+		}
+		clientCheckResult.value = await launcherApi.client.check({
+			sourceUrl: selectedClientPatchSourceUrl.value
+		})
 		notice.value = t('clientCheck.checked')
 	} catch (err) {
 		error.value = err instanceof Error ? err.message : t('clientCheck.error')
@@ -323,7 +371,9 @@ async function loadClientManifest(): Promise<void> {
 	notice.value = ''
 	clientManifestLoading.value = true
 	try {
-		clientPatchManifest.value = await launcherApi.client.list()
+		clientPatchManifest.value = await launcherApi.client.list({
+			sourceUrl: selectedClientPatchSourceUrl.value
+		})
 		notice.value = t('clientCheck.loaded')
 	} catch (err) {
 		error.value = err instanceof Error ? err.message : t('clientCheck.loadError')
@@ -337,8 +387,13 @@ async function downloadClientFile(input: ClientPatchFileInput): Promise<void> {
 	notice.value = ''
 	clientDownloadingKey.value = createClientFileKey(input)
 	try {
-		await launcherApi.client.downloadFile(input)
-		clientCheckResult.value = await launcherApi.client.check()
+		await launcherApi.client.downloadFile({
+			...input,
+			sourceUrl: selectedClientPatchSourceUrl.value
+		})
+		clientCheckResult.value = await launcherApi.client.check({
+			sourceUrl: selectedClientPatchSourceUrl.value
+		})
 		notice.value = t('clientCheck.downloadedFile')
 	} catch (err) {
 		error.value = err instanceof Error ? err.message : t('clientCheck.downloadError')
@@ -352,8 +407,12 @@ async function downloadMissingClientFiles(): Promise<void> {
 	notice.value = ''
 	clientDownloadingAll.value = true
 	try {
-		const result = await launcherApi.client.downloadMissing()
-		clientCheckResult.value = await launcherApi.client.check()
+		const result = await launcherApi.client.downloadMissing({
+			sourceUrl: selectedClientPatchSourceUrl.value
+		})
+		clientCheckResult.value = await launcherApi.client.check({
+			sourceUrl: selectedClientPatchSourceUrl.value
+		})
 		notice.value = t('clientCheck.downloadedAll', { total: result.total })
 	} catch (err) {
 		error.value = err instanceof Error ? err.message : t('clientCheck.downloadError')
@@ -379,15 +438,26 @@ function checkAddons(): void {
 	navigate('addons')
 	notice.value = t('footer.status.addonsSoon')
 }
+
+function selectClientPatchSource(sourceUrl: string): void {
+	selectedClientPatchSourceUrl.value = sourceUrl
+	clientPatchManifest.value = null
+	clientCheckResult.value = null
+	notice.value = ''
+	error.value = ''
+}
 </script>
 
 <template>
 	<main class="shell">
 		<DashboardHeader
+			:accounts="accounts"
 			:github-token-status="githubTokenStatus"
 			:title="activeTitle"
 			:eyebrow="activeEyebrow"
 			@open-token="tokenModalOpen = true"
+			@open-account="accountModalOpen = true"
+			@select-account="selectAccount"
 		/>
 
 		<AppSidebar :app-info="appInfo" :active-section="activeSection" @navigate="navigate" />
@@ -419,10 +489,13 @@ function checkAddons(): void {
 				v-else-if="activeSection === 'client'"
 				:manifest="clientPatchManifest"
 				:result="clientCheckResult"
+				:source-urls="[...clientPatchSourceUrls]"
+				:selected-source-url="selectedClientPatchSourceUrl"
 				:checking="clientChecking"
 				:loading-manifest="clientManifestLoading"
 				:downloading-key="clientDownloadingKey"
 				:downloading-all="clientDownloadingAll"
+				@select-source="selectClientPatchSource"
 				@load="loadClientManifest"
 				@check="checkClient"
 				@download-file="downloadClientFile"
@@ -496,6 +569,15 @@ function checkAddons(): void {
 			@save="saveGitHubToken"
 			@clear="clearGitHubToken"
 			@close="tokenModalOpen = false"
+		/>
+
+		<AccountModal
+			v-if="accountModalOpen"
+			v-model:login="accountLogin"
+			v-model:password="accountPassword"
+			:error="accountModalError"
+			@save="addAccount"
+			@close="accountModalOpen = false"
 		/>
 	</main>
 </template>

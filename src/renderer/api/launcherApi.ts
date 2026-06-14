@@ -1,9 +1,12 @@
 import type {
 	AccountConfigInput,
+	AddAccountInput,
 	ClientPatchFileInput,
+	ClientPatchSourceInput,
 	GitHubTokenInput,
 	LauncherApi,
 	LauncherSettingsPatch,
+	SelectAccountInput,
 	WtfBackupActionInput
 } from '@shared/contracts'
 
@@ -38,16 +41,22 @@ export const launcherApi = {
 		deleteWtf: (input: WtfBackupActionInput) => getLauncher().backup.deleteWtf(input),
 		openWtfFolder: () => getLauncher().backup.openWtfFolder()
 	},
+	accounts: {
+		list: () => getLauncher().accounts.list(),
+		add: (input: AddAccountInput) => getLauncher().accounts.add(input),
+		select: (input: SelectAccountInput) => getLauncher().accounts.select(input)
+	},
 	fpsPatch: {
 		getStatus: () => getLauncher().fpsPatch.getStatus(),
 		install: () => getLauncher().fpsPatch.install(),
 		delete: () => getLauncher().fpsPatch.delete()
 	},
 	client: {
-		list: () => getLauncher().client.list(),
-		check: () => getLauncher().client.check(),
+		list: (input?: ClientPatchSourceInput) => getLauncher().client.list(input),
+		check: (input?: ClientPatchSourceInput) => getLauncher().client.check(input),
 		downloadFile: (input: ClientPatchFileInput) => getLauncher().client.downloadFile(input),
-		downloadMissing: () => getLauncher().client.downloadMissing()
+		downloadMissing: (input?: ClientPatchSourceInput) =>
+			getLauncher().client.downloadMissing(input)
 	},
 	wow: {
 		validatePath: (wowPath: string) => getLauncher().wow.validatePath(wowPath),
