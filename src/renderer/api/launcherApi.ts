@@ -65,6 +65,7 @@ export const launcherApi = {
 		list: () => getLauncher().addons.list(),
 		check: () => getLauncher().addons.check(),
 		install: (input: AddonActionInput) => getLauncher().addons.install(input),
+		delete: (input: AddonActionInput) => getLauncher().addons.delete(input),
 		updateAll: () => getLauncher().addons.updateAll(),
 		addCustom: (input: AddCustomAddonInput) => getLauncher().addons.addCustom(input),
 		exportCustom: () => getLauncher().addons.exportCustom(),

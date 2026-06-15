@@ -1,9 +1,5 @@
 {
-	"generatedAt": "2026-06-14T22:18:51.609Z",
-	"sources": {
-		"community": "https://github.com/fxpw/AddonUpdaterSettings/blob/main/AddonUpdaterLinks",
-		"sirus": "https://github.com/fxpw/AddonUpdaterSettings/blob/main/AddonUpdaterSirusLinks"
-	},
+	"generatedAt": "2026-06-15T12:30:05.610Z",
 	"addons": [
 		{
 			"id": "community:ackisrecipelist",
@@ -33,6 +29,20 @@
 			"forumUrl": "https://discord.gg/addony-dlia-sirus-su-914079030125420565",
 			"bugReportUrl": "https://discord.gg/addony-dlia-sirus-su-914079030125420565",
 			"author": "Stekolnyu",
+			"category": "Интерфейс"
+		},
+		{
+			"id": "community:aeonoplates",
+			"source": "community",
+			"name": "AeonoPlates",
+			"versionUrl": "https://raw.githubusercontent.com/Aeonoscul/AeonoPlates/main/AeonoPlates.toc",
+			"branch": "main",
+			"folders": ["AeonoPlates"],
+			"description": "AeonoPlates - аддон для кастомизации неймплейтов над головами игроков и существ.",
+			"githubUrl": "https://github.com/Aeonoscul/AeonoPlates",
+			"repo": "Aeonoscul/AeonoPlates",
+			"bugReportUrl": "https://github.com/Aeonoscul/AeonoPlates",
+			"author": "Aeonoscul",
 			"category": "Интерфейс"
 		},
 		{
@@ -262,8 +272,6 @@
 			"source": "community",
 			"name": "DBM",
 			"versionUrl": "https://raw.githubusercontent.com/Waini4/DBM_For_Sirus/main/DBM-Core/DBM-Core.toc",
-			"versionFolder": "DBM-Core",
-			"versionFile": "DBM-Core.toc",
 			"branch": "main",
 			"folders": [
 				"DBM-AQ20",
@@ -301,7 +309,12 @@
 				"DBM-WorldBoss",
 				"DBM-WorldEvents",
 				"DBM-ZG",
-				"DBM-ZulAman"
+				"DBM-ZulAman",
+				"DBM-BronzeSanctuary",
+				"DBM-BurningCrusade",
+				"DBM-DefaultSkin",
+				"DBM-Tol'Garod",
+				"DBM-Tol'GarodePrison"
 			],
 			"description": "Deadly Boss Mods - аддон, который оповещает об особых атаках боссов. Данный аддон вам очень пригодится, если вы собираетесь покорять PvE-контент, и особенно, если вы новичок в игре. Аддон также используется и в PvP, например, он может показывать время до захвата пунктов на бг.",
 			"githubUrl": "https://github.com/Waini4/DBM_For_Sirus",
@@ -309,25 +322,30 @@
 			"forumUrl": "https://forum.sirus.su/threads/dbm.239341/",
 			"bugReportUrl": "https://discord.gg/addony-dlia-sirus-su-914079030125420565",
 			"author": "Waini, Fxpw, Stekolnyu",
-			"category": "Бой"
+			"category": "Бой",
+			"versionFolder": "DBM-Core",
+			"versionFile": "DBM-Core.toc"
 		},
 		{
 			"id": "community:details",
 			"source": "community",
 			"name": "Details",
-			"versionUrl": "https://raw.githubusercontent.com/fxpw/Details_Sirus/master/Details/Details.toc",
-			"versionFolder": "Details",
-			"versionFile": "Details.toc",
+			"versionUrl": "https://raw.githubusercontent.com/fxpw/Details-WotLK/master/Details/Details.toc",
 			"branch": "master",
 			"folders": [
 				"Details",
 				"Details_3DModelsPaths",
 				"Details_ChartViewer",
+				"Details_CustomDmgAtSkull",
+				"Details_CustomPotions",
 				"Details_DataStorage",
 				"Details_DeathGraphs",
 				"Details_EncounterDetails",
+				"Details_SunderCount",
 				"Details_TimeLine",
-				"Details_TinyThreat"
+				"Details_TinyThreat",
+				"Details_CustomTankInfo",
+				"Details_CustomAbsorbDmg"
 			],
 			"description": "Details - Незаменимый инструмент, чтобы произвести впечатление на ту самую девчонку в вашем рейде.",
 			"githubUrl": "https://github.com/fxpw/Details_Sirus",
@@ -335,7 +353,9 @@
 			"forumUrl": "https://forum.sirus.su/threads/addon-details-for-sirus.201755/",
 			"bugReportUrl": "https://discord.gg/addony-dlia-sirus-su-914079030125420565",
 			"author": "Fxpw",
-			"category": "Бой"
+			"category": "Бой",
+			"versionFolder": "Details",
+			"versionFile": "Details.toc"
 		},
 		{
 			"id": "community:dominos",
@@ -573,20 +593,6 @@
 			"category": "Интерфейс"
 		},
 		{
-			"id": "community:ethnoprof",
-			"source": "community",
-			"name": "EthnoProf",
-			"versionUrl": "https://raw.githubusercontent.com/fxpw/Minpromtorg/EthnoProf/master/EthnoProf/EthnoProf.toc",
-			"branch": "master",
-			"folders": ["EthnoProf"],
-			"description": "EthnoProf - аддон позволяющий просматривать окно новой профессиии \"Этнография\" через книгу заклинаний в режиме оффлайн просмотра (Крафт недоступен)",
-			"githubUrl": "https://github.com/Minpromtorg/EthnoProf",
-			"repo": "Minpromtorg/EthnoProf",
-			"bugReportUrl": "https://discord.gg/addony-dlia-sirus-su-914079030125420565",
-			"author": "Minpromtorg",
-			"category": "Интерфейс"
-		},
-		{
 			"id": "community:enemycooldowns",
 			"source": "community",
 			"name": "EnemyCooldowns",
@@ -607,7 +613,13 @@
 			"name": "EPGP",
 			"versionUrl": "https://raw.githubusercontent.com/fxpw/EPGP/master/EPGP/epgp.toc",
 			"branch": "master",
-			"folders": ["EPGP", "EPGP_Attendance", "EPGP_Lootmaster", "EPGP_Lootmaster_ML"],
+			"folders": [
+				"EPGP",
+				"EPGP_Attendance",
+				"EPGP_Lootmaster",
+				"EPGP_Lootmaster_ML",
+				"EPGP_Auction"
+			],
 			"description": "EPGP один из самых полезных аддонов для гильдий и рлов (рейд лидеров). Аддон распределяет очки EP (effort points) и GP (gear points) и в зависимости от их количества рл видит, кто больше заслуживает тот или иной предмет.",
 			"githubUrl": "https://github.com/fxpw/EPGP",
 			"repo": "fxpw/EPGP",
@@ -622,13 +634,33 @@
 			"name": "EPGP_Auction",
 			"versionUrl": "https://raw.githubusercontent.com/fxpw/EPGP_Auction/master/EPGP_Auction.toc",
 			"branch": "master",
-			"folders": ["EPGP_Auction"],
+			"folders": [
+				"EPGP_Auction",
+				"EPGP",
+				"EPGP_Attendance",
+				"EPGP_Lootmaster",
+				"EPGP_Lootmaster_ML"
+			],
 			"description": "EPGP_Auction один из самых полезных аддонов для гильдий и рлов (рейд лидеров). Аддон распределяет очки EP (effort points) зависимости от количества рл видит, кто больше заслуживает тот или иной предмет.",
 			"githubUrl": "https://github.com/fxpw/EPGP_Auction",
 			"repo": "fxpw/EPGP_Auction",
 			"forumUrl": "https://forum.sirus.su/threads/addon-ep-auction.261344/#post-2272492",
 			"bugReportUrl": "https://discord.gg/addony-dlia-sirus-su-914079030125420565",
 			"author": "Fxpw",
+			"category": "Интерфейс"
+		},
+		{
+			"id": "community:ethnoprof",
+			"source": "community",
+			"name": "EthnoProf",
+			"versionUrl": "https://raw.githubusercontent.com/fxpw/Minpromtorg/EthnoProf/master/EthnoProf/EthnoProf.toc",
+			"branch": "master",
+			"folders": ["EthnoProf"],
+			"description": "EthnoProf - аддон позволяющий просматривать окно новой профессиии \"Этнография\" через книгу заклинаний в режиме оффлайн просмотра (Крафт недоступен)",
+			"githubUrl": "https://github.com/Minpromtorg/EthnoProf",
+			"repo": "Minpromtorg/EthnoProf",
+			"bugReportUrl": "https://discord.gg/addony-dlia-sirus-su-914079030125420565",
+			"author": "Minpromtorg",
 			"category": "Интерфейс"
 		},
 		{
@@ -788,6 +820,21 @@
 			"bugReportUrl": "https://discord.com/invite/K3kBFeMhu3",
 			"author": "MetaSirus",
 			"category": "PVE рейтинг"
+		},
+		{
+			"id": "community:methoddungeontools",
+			"source": "community",
+			"name": "MethodDungeonTools",
+			"versionUrl": "https://raw.githubusercontent.com/Rodgare/MethodDungeonTools/main/MethodDungeonTools.toc",
+			"branch": "main",
+			"folders": ["MethodDungeonTools"],
+			"description": "Легендарный аддон с актуальных версий WoW для планирования маршрутов теперь доступен на Sirus! Это незаменимый инструмент для танков и групп, которые хотят проходить подземелья максимально эффективно, планировать каждый запул и оптимизировать время прохождения.",
+			"githubUrl": "https://github.com/Rodgare/MethodDungeonTools",
+			"repo": "Rodgare/MethodDungeonTools",
+			"forumUrl": "https://forum.sirus.su/resources/mythic-method-dungeon-tools-mdt.469/",
+			"bugReportUrl": "https://discord.com/users/123456789012345678",
+			"author": "Coda",
+			"category": "PVE"
 		},
 		{
 			"id": "community:minesweeper",
@@ -1100,7 +1147,8 @@
 				"WeakAurasModelPaths",
 				"WeakAurasOptions",
 				"WeakAurasTemplates",
-				"WeakAurasStopMotion"
+				"WeakAurasStopMotion",
+				"WeakAurasSounds"
 			],
 			"description": "WeakAuras мощный и при этом гибкий модификатор интерфейса, который позволит вам видеть на экране самые разные версии отображения положительных/отрицательных эффектов и любой другой информации по состоянию вашего персонажа.",
 			"githubUrl": "https://github.com/fxpw/WeakAuras-Sirus.su/",
@@ -1124,21 +1172,6 @@
 			"bugReportUrl": "https://discord.gg/addony-dlia-sirus-su-914079030125420565",
 			"author": "Fxpw",
 			"category": "Чат и общение"
-		},
-		{
-			"id": "community:methoddungeontools",
-			"source": "community",
-			"name": "MethodDungeonTools",
-			"versionUrl": "https://raw.githubusercontent.com/Rodgare/MethodDungeonTools/refs/heads/main/MethodDungeonTools.toc",
-			"branch": "main",
-			"folders": ["MethodDungeonTools"],
-			"description": "Легендарный аддон с актуальных версий WoW для планирования маршрутов теперь доступен на Sirus! Это незаменимый инструмент для танков и групп, которые хотят проходить подземелья максимально эффективно, планировать каждый запул и оптимизировать время прохождения.",
-			"githubUrl": "https://github.com/Rodgare/MethodDungeonTools",
-			"repo": "Rodgare/MethodDungeonTools",
-			"forumUrl": "https://forum.sirus.su/resources/mythic-method-dungeon-tools-mdt.469/",
-			"bugReportUrl": "https://discord.com/users/123456789012345678",
-			"author": "Coda",
-			"category": "PVE"
 		},
 		{
 			"id": "sirus:advancedwotlkcombatlog",

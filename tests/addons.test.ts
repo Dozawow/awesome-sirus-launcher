@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { mkdtemp } from 'node:fs/promises'
@@ -61,9 +61,16 @@ describe('addons core', () => {
 			'EPGP',
 			'EPGP_Attendance',
 			'EPGP_Lootmaster',
+			'EPGP_Lootmaster_ML',
+			'EPGP_Auction'
+		])
+		expect(epgpAuction?.folders).toEqual([
+			'EPGP_Auction',
+			'EPGP',
+			'EPGP_Attendance',
+			'EPGP_Lootmaster',
 			'EPGP_Lootmaster_ML'
 		])
-		expect(epgpAuction?.folders).toEqual(['EPGP_Auction'])
 	})
 
 	it('defines explicit version toc paths for DBM and Details packages', () => {
@@ -75,24 +82,29 @@ describe('addons core', () => {
 			versionFolder: 'DBM-Core',
 			versionFile: 'DBM-Core.toc'
 		})
-		expect(dbm?.folders).not.toContain("DBM-Tol'GarodePrison")
-		expect(dbm?.folders).not.toContain('DBM-BronzeSanctuary')
+		expect(dbm?.folders).toContain("DBM-Tol'GarodePrison")
+		expect(dbm?.folders).toContain('DBM-BronzeSanctuary')
 		expect(details).toMatchObject({
 			versionUrl:
-				'https://raw.githubusercontent.com/fxpw/Details_Sirus/master/Details/Details.toc',
+				'https://raw.githubusercontent.com/fxpw/Details-WotLK/master/Details/Details.toc',
 			versionFolder: 'Details',
 			versionFile: 'Details.toc'
 		})
-		expect(details?.folders).toEqual([
-			'Details',
-			'Details_3DModelsPaths',
-			'Details_ChartViewer',
-			'Details_DataStorage',
-			'Details_DeathGraphs',
-			'Details_EncounterDetails',
-			'Details_TimeLine',
-			'Details_TinyThreat'
-		])
+		expect(details?.folders).toContain('Details_CustomAbsorbDmg')
+		expect(details?.folders).toContain('Details_CustomTankInfo')
+	})
+
+	it('includes the full Mr-Dan community catalog snapshot', () => {
+		const addons = (addonCatalog as { addons: AddonCatalogEntry[] }).addons
+		const community = addons.filter((addon) => addon.source === 'community')
+		const aeonoPlates = community.find((addon) => addon.id === 'community:aeonoplates')
+
+		expect(community).toHaveLength(72)
+		expect(aeonoPlates).toMatchObject({
+			name: 'AeonoPlates',
+			repo: 'Aeonoscul/AeonoPlates',
+			folders: ['AeonoPlates']
+		})
 	})
 })
 
@@ -123,6 +135,48 @@ describe('addon service', () => {
 		await expect(service.install({ addonId: addon?.id ?? '' })).rejects.toThrow(
 			'Аддон установлен из git'
 		)
+	})
+
+	it('installs addons whose repository has toc files at zip root', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response('## Version: 1.0.0\n'))
+		)
+
+		const root = await mkdtemp(join(tmpdir(), 'sirus-addons-root-toc-'))
+		const wowPath = join(root, 'wow')
+		const addonPath = join(wowPath, 'Interface', 'AddOns', 'AeonoPlates')
+
+		try {
+			await mkdir(join(wowPath, 'Data'), { recursive: true })
+			await mkdir(join(wowPath, 'Interface'), { recursive: true })
+			await mkdir(join(wowPath, 'WTF'), { recursive: true })
+			await writeFile(join(wowPath, 'run.exe'), '')
+
+			const service = createAddonService(
+				() => root,
+				createMemorySettingsStore({ wowPath }),
+				createMemorySecretStore(),
+				async () => undefined,
+				async (_archivePath, targetDir) => {
+					const archiveRoot = join(targetDir, 'AeonoPlates-main')
+					await mkdir(archiveRoot, { recursive: true })
+					await writeFile(join(archiveRoot, 'AeonoPlates.toc'), '## Version: 1.0.0\n')
+					await writeFile(join(archiveRoot, 'AeonoPlates.xml'), '<Ui />')
+				}
+			)
+
+			const result = await service.install({ addonId: 'community:aeonoplates' })
+
+			expect(result.installedFolders).toEqual(['AeonoPlates'])
+			await expect(readFile(join(addonPath, 'AeonoPlates.toc'), 'utf8')).resolves.toContain(
+				'1.0.0'
+			)
+			expect(result.addon.status).toBe('installed')
+			expect(result.addon.installedVersion).toBe('1.0.0')
+		} finally {
+			vi.unstubAllGlobals()
+		}
 	})
 
 	it('checks only installed catalog addons matched by folder name', async () => {
@@ -161,6 +215,32 @@ describe('addon service', () => {
 		} finally {
 			vi.unstubAllGlobals()
 		}
+	})
+
+	it('deletes installed addon folders and returns not-installed status', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'sirus-addons-delete-'))
+		const wowPath = join(root, 'wow')
+		const addonPath = join(wowPath, 'Interface', 'AddOns', 'AeonoPlates')
+		await mkdir(join(wowPath, 'Data'), { recursive: true })
+		await mkdir(join(wowPath, 'Interface'), { recursive: true })
+		await mkdir(join(wowPath, 'WTF'), { recursive: true })
+		await mkdir(addonPath, { recursive: true })
+		await writeFile(join(wowPath, 'run.exe'), '')
+		await writeFile(join(addonPath, 'AeonoPlates.toc'), '## Version: 1.0.0\n')
+
+		const service = createAddonService(
+			() => root,
+			createMemorySettingsStore({ wowPath }),
+			createMemorySecretStore(),
+			async () => undefined,
+			async () => undefined
+		)
+
+		const result = await service.delete({ addonId: 'community:aeonoplates' })
+
+		expect(result.deletedFolders).toEqual(['AeonoPlates'])
+		expect(result.addon.status).toBe('not-installed')
+		await expect(readFile(join(addonPath, 'AeonoPlates.toc'), 'utf8')).rejects.toThrow()
 	})
 
 	it('uses addon name folder for installed version when package has helper folders', async () => {

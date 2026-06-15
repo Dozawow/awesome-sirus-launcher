@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import type { AddonSummary } from '@shared/contracts'
+import { computed, onMounted, ref, watch } from 'vue'
+import type { AddonsListResult, AddonSummary } from '@shared/contracts'
 import { launcherApi } from '@renderer/api/launcherApi'
 import BaseButton from '@renderer/components/BaseButton.vue'
 import BasePanel from '@renderer/components/BasePanel.vue'
@@ -8,27 +8,36 @@ import StatusBadge from '@renderer/components/StatusBadge.vue'
 import TextField from '@renderer/components/TextField.vue'
 import { useLocale } from '@renderer/composables/useLocale'
 
+const props = defineProps<{
+	addonResult?: AddonsListResult | null
+	checkingExternal?: boolean
+}>()
+const emit = defineEmits<{
+	checked: [result: AddonsListResult]
+}>()
+
 const { t } = useLocale()
 
-const addons = ref<AddonSummary[]>([])
+const catalogAddons = ref<AddonSummary[]>([])
+const checkedAddons = ref<AddonSummary[]>([])
 const loading = ref(false)
 const checking = ref(false)
 const updatingAddonId = ref('')
+const deletingAddonId = ref('')
+const addonPendingDelete = ref<AddonSummary | null>(null)
 const customName = ref('')
 const customUrl = ref('')
 const notice = ref('')
 const error = ref('')
 
+const addons = computed(() => mergeAddonLists(catalogAddons.value, checkedAddons.value))
 const communityCount = computed(
 	() => addons.value.filter((addon) => addon.source === 'community').length
 )
 const sirusCount = computed(() => addons.value.filter((addon) => addon.source === 'sirus').length)
 const customCount = computed(() => addons.value.filter((addon) => addon.source === 'custom').length)
 const problemCount = computed(
-	() =>
-		addons.value.filter(
-			(addon) => addon.status === 'outdated' || addon.status === 'not-installed'
-		).length
+	() => addons.value.filter((addon) => addon.status === 'outdated').length
 )
 const addonTables = computed(() => [
 	{
@@ -50,6 +59,16 @@ const addonTables = computed(() => [
 		addons: addons.value.filter((addon) => addon.source === 'custom')
 	}
 ])
+const isChecking = computed(() => checking.value || props.checkingExternal === true)
+
+watch(
+	() => props.addonResult,
+	(result) => {
+		if (!result) return
+		mergeCheckedAddons(result.addons)
+	},
+	{ immediate: true }
+)
 
 onMounted(() => {
 	void loadAddons()
@@ -59,7 +78,8 @@ async function loadAddons(): Promise<void> {
 	await run(async () => {
 		loading.value = true
 		const result = await launcherApi.addons.list()
-		addons.value = result.addons
+		catalogAddons.value = result.addons
+		if (props.addonResult) mergeCheckedAddons(props.addonResult.addons)
 		notice.value = t('addons.loaded')
 	})
 	loading.value = false
@@ -70,7 +90,8 @@ async function checkAddons(): Promise<void> {
 		checking.value = true
 		await ensureCatalogLoaded()
 		const result = await launcherApi.addons.check()
-		mergeAddons(result.addons)
+		replaceCheckedAddons(result.addons)
+		emit('checked', result)
 		notice.value = t('addons.checked')
 	})
 	checking.value = false
@@ -80,10 +101,37 @@ async function installAddon(addon: AddonSummary): Promise<void> {
 	await run(async () => {
 		updatingAddonId.value = addon.id
 		const result = await launcherApi.addons.install({ addonId: addon.id })
-		upsertAddon(result.addon)
+		upsertCheckedAddon(result.addon)
+		const checked = await launcherApi.addons.check()
+		replaceCheckedAddons(checked.addons)
+		emit('checked', checked)
 		notice.value = t('addons.installed')
 	})
 	updatingAddonId.value = ''
+}
+
+function requestDeleteAddon(addon: AddonSummary): void {
+	addonPendingDelete.value = addon
+}
+
+function cancelDeleteAddon(): void {
+	addonPendingDelete.value = null
+}
+
+async function confirmDeleteAddon(): Promise<void> {
+	const addon = addonPendingDelete.value
+	if (!addon) return
+
+	await run(async () => {
+		deletingAddonId.value = addon.id
+		const result = await launcherApi.addons.delete({ addonId: addon.id })
+		const checked = await launcherApi.addons.check()
+		replaceCheckedAddons([...checked.addons, result.addon])
+		emit('checked', checked)
+		notice.value = t('addons.deleted')
+		addonPendingDelete.value = null
+	})
+	deletingAddonId.value = ''
 }
 
 async function updateAll(): Promise<void> {
@@ -92,9 +140,12 @@ async function updateAll(): Promise<void> {
 		await ensureCatalogLoaded()
 		const result = await launcherApi.addons.updateAll()
 		for (const installed of result.installed) {
-			upsertAddon(installed.addon)
+			upsertCheckedAddon(installed.addon)
 		}
-		mergeAddons(result.skipped)
+		mergeCheckedAddons(result.skipped)
+		const checked = await launcherApi.addons.check()
+		replaceCheckedAddons(checked.addons)
+		emit('checked', checked)
 		notice.value = t('addons.updatedAll', { total: result.total })
 	})
 	checking.value = false
@@ -106,7 +157,7 @@ async function addCustomAddon(): Promise<void> {
 			name: customName.value,
 			githubUrl: customUrl.value
 		})
-		addons.value = result.addons
+		catalogAddons.value = result.addons
 		customName.value = ''
 		customUrl.value = ''
 		notice.value = t('addons.customAdded')
@@ -126,7 +177,7 @@ async function importCustomAddons(): Promise<void> {
 		const result = await launcherApi.addons.importCustom()
 		if (!result) return
 		const listResult = await launcherApi.addons.list()
-		addons.value = listResult.addons
+		catalogAddons.value = listResult.addons
 		notice.value = t('addons.imported', { total: result.total })
 	})
 }
@@ -142,26 +193,43 @@ async function run(action: () => Promise<void>): Promise<void> {
 		loading.value = false
 		checking.value = false
 		updatingAddonId.value = ''
+		deletingAddonId.value = ''
 	}
 }
 
-function upsertAddon(addon: AddonSummary): void {
-	const index = addons.value.findIndex((item) => item.id === addon.id)
-	if (index >= 0) addons.value[index] = addon
-	else addons.value.push(addon)
+function upsertCheckedAddon(addon: AddonSummary): void {
+	const index = checkedAddons.value.findIndex((item) => item.id === addon.id)
+	if (index >= 0) checkedAddons.value[index] = addon
+	else checkedAddons.value.push(addon)
 }
 
-function mergeAddons(nextAddons: AddonSummary[]): void {
+function mergeCheckedAddons(nextAddons: AddonSummary[]): void {
 	for (const addon of nextAddons) {
-		upsertAddon(addon)
+		upsertCheckedAddon(addon)
 	}
+}
+
+function replaceCheckedAddons(nextAddons: AddonSummary[]): void {
+	checkedAddons.value = nextAddons
+}
+
+function mergeAddonLists(
+	baseAddons: AddonSummary[],
+	overrideAddons: AddonSummary[]
+): AddonSummary[] {
+	const merged = new Map(baseAddons.map((addon) => [addon.id, addon]))
+	for (const addon of overrideAddons) {
+		merged.set(addon.id, addon)
+	}
+
+	return [...merged.values()]
 }
 
 async function ensureCatalogLoaded(): Promise<void> {
-	if (addons.value.length > 0) return
+	if (catalogAddons.value.length > 0) return
 
 	const result = await launcherApi.addons.list()
-	addons.value = result.addons
+	catalogAddons.value = result.addons
 }
 
 function getStatusLabel(addon: AddonSummary): string {
@@ -194,6 +262,10 @@ function getStatusTone(addon: AddonSummary): 'neutral' | 'ok' | 'warning' {
 	if (addon.status === 'manual-git' || addon.status === 'outdated') return 'warning'
 	return 'neutral'
 }
+
+function canDeleteAddon(addon: AddonSummary): boolean {
+	return addon.status !== 'not-installed' && deletingAddonId.value !== addon.id
+}
 </script>
 
 <template>
@@ -204,13 +276,21 @@ function getStatusTone(addon: AddonSummary): 'neutral' | 'ok' | 'warning' {
 				<p>{{ t('addons.description') }}</p>
 			</div>
 			<div class="panel-heading__actions">
-				<BaseButton variant="secondary" :disabled="loading || checking" @click="loadAddons">
+				<BaseButton
+					variant="secondary"
+					:disabled="loading || isChecking"
+					@click="loadAddons"
+				>
 					{{ loading ? t('addons.loading') : t('addons.load') }}
 				</BaseButton>
-				<BaseButton :disabled="loading || checking" @click="checkAddons">
-					{{ checking ? t('addons.checking') : t('addons.check') }}
+				<BaseButton :disabled="loading || isChecking" @click="checkAddons">
+					{{ isChecking ? t('addons.checking') : t('addons.check') }}
 				</BaseButton>
-				<BaseButton variant="secondary" :disabled="loading || checking" @click="updateAll">
+				<BaseButton
+					variant="secondary"
+					:disabled="loading || isChecking"
+					@click="updateAll"
+				>
 					{{ t('addons.updateAll') }}
 				</BaseButton>
 			</div>
@@ -275,19 +355,69 @@ function getStatusTone(addon: AddonSummary): 'neutral' | 'ok' | 'warning' {
 					<StatusBadge :tone="getStatusTone(addon)" :title="getStatusReason(addon)">
 						{{ getStatusLabel(addon) }}
 					</StatusBadge>
-					<BaseButton
-						variant="secondary"
-						:disabled="addon.status === 'manual-git' || updatingAddonId === addon.id"
-						@click="installAddon(addon)"
-					>
-						{{
-							updatingAddonId === addon.id
-								? t('addons.installing')
-								: t('addons.install')
-						}}
-					</BaseButton>
+					<div class="addon-actions">
+						<BaseButton
+							variant="secondary"
+							:disabled="
+								addon.status === 'manual-git' || updatingAddonId === addon.id
+							"
+							@click="installAddon(addon)"
+						>
+							{{
+								updatingAddonId === addon.id
+									? t('addons.installing')
+									: t('addons.install')
+							}}
+						</BaseButton>
+						<BaseButton
+							variant="danger"
+							:disabled="!canDeleteAddon(addon)"
+							@click="requestDeleteAddon(addon)"
+						>
+							{{
+								deletingAddonId === addon.id
+									? t('addons.deleting')
+									: t('addons.delete')
+							}}
+						</BaseButton>
+					</div>
 				</div>
 			</div>
 		</section>
 	</BasePanel>
+
+	<div v-if="addonPendingDelete" class="modal-overlay">
+		<section class="modal-shell" role="dialog" aria-modal="true">
+			<div class="modal-heading">
+				<div>
+					<p class="eyebrow">{{ t('addons.delete') }}</p>
+					<h3>{{ t('addons.deleteTitle') }}</h3>
+					<p>
+						{{
+							t('addons.deleteDescription', {
+								name: addonPendingDelete.name
+							})
+						}}
+					</p>
+				</div>
+			</div>
+			<p v-if="error" class="error">{{ error }}</p>
+			<div class="modal-actions">
+				<BaseButton variant="secondary" @click="cancelDeleteAddon">
+					{{ t('addons.deleteCancel') }}
+				</BaseButton>
+				<BaseButton
+					variant="danger"
+					:disabled="deletingAddonId === addonPendingDelete.id"
+					@click="confirmDeleteAddon"
+				>
+					{{
+						deletingAddonId === addonPendingDelete.id
+							? t('addons.deleting')
+							: t('addons.deleteConfirm')
+					}}
+				</BaseButton>
+			</div>
+		</section>
+	</div>
 </template>

@@ -7,6 +7,7 @@ import type {
 	AddCustomAddonInput,
 	AddonActionInput,
 	AddonCatalogEntry,
+	AddonDeleteResult,
 	AddonInstallResult,
 	AddonsListResult,
 	AddonSummary,
@@ -88,9 +89,8 @@ export function createAddonService(
 			const skippedGitFolders: string[] = []
 
 			for (const addonDir of addonDirs) {
-				const folderName = addonDir.split(/[\\/]/).pop()
+				const folderName = await resolveInstallFolderName(addonDir, entry)
 				if (!folderName) continue
-				if (entry.folders.length > 0 && !entry.folders.includes(folderName)) continue
 
 				const targetPath = join(validation.addonsPath, folderName)
 				if (hasGitFolder(targetPath)) {
@@ -104,6 +104,10 @@ export function createAddonService(
 				installedFolders.push(folderName)
 			}
 
+			if (installedFolders.length === 0 && skippedGitFolders.length === 0) {
+				throw new Error('В архиве не найдены папки аддона из каталога')
+			}
+
 			const addon = await summarizeAddon(entry, true)
 			return {
 				installedAt: new Date().toISOString(),
@@ -113,6 +117,31 @@ export function createAddonService(
 			}
 		} finally {
 			await rm(tempRoot, { recursive: true, force: true })
+		}
+	}
+
+	async function deleteAddon(input: AddonActionInput): Promise<AddonDeleteResult> {
+		const entries = await getCatalogEntries()
+		const entry = entries.find((addon) => addon.id === input.addonId)
+		if (!entry) throw new Error('Аддон не найден в каталоге')
+
+		const settings = await settingsStore.get()
+		const validation = validateWowPath(settings.wowPath)
+		if (!validation.valid) throw new Error('Сначала укажи корректную папку WoW')
+
+		const deletedFolders: string[] = []
+		for (const folder of getAddonFolderNames(entry)) {
+			const targetPath = join(validation.addonsPath, folder)
+			if (!existsSync(targetPath)) continue
+
+			await rm(targetPath, { recursive: true, force: true })
+			deletedFolders.push(folder)
+		}
+
+		return {
+			deletedAt: new Date().toISOString(),
+			addon: await summarizeAddon(entry, false),
+			deletedFolders
 		}
 	}
 
@@ -285,6 +314,7 @@ export function createAddonService(
 		list: () => list(false),
 		check: () => list(true, true),
 		install,
+		delete: deleteAddon,
 		updateAll,
 		addCustom,
 		exportCustom,
@@ -340,6 +370,29 @@ async function walk(dirPath: string, found: string[]): Promise<void> {
 	for (const entry of entries) {
 		if (entry.isDirectory()) await walk(join(dirPath, entry.name), found)
 	}
+}
+
+async function resolveInstallFolderName(
+	addonDir: string,
+	entry: AddonCatalogEntry
+): Promise<string | undefined> {
+	const folderName = addonDir.split(/[\\/]/).pop()
+	if (!folderName) return undefined
+	if (entry.folders.length === 0 || entry.folders.includes(folderName)) return folderName
+
+	const tocFolderName = await readAddonFolderNameFromToc(addonDir)
+	if (tocFolderName && entry.folders.includes(tocFolderName)) return tocFolderName
+	if (entry.folders.length === 1) return entry.folders[0]
+
+	return undefined
+}
+
+async function readAddonFolderNameFromToc(addonDir: string): Promise<string | undefined> {
+	const files = await readdir(addonDir)
+	const tocFile = files.find((file) => file.toLowerCase().endsWith('.toc'))
+	if (!tocFile) return undefined
+
+	return tocFile.replace(/\.toc$/i, '')
 }
 
 function countSources(

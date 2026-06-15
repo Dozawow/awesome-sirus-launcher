@@ -65,6 +65,7 @@ const api: LauncherApi = {
 		list: () => ipcRenderer.invoke(ipcChannels.addons.list),
 		check: () => ipcRenderer.invoke(ipcChannels.addons.check),
 		install: (input: AddonActionInput) => ipcRenderer.invoke(ipcChannels.addons.install, input),
+		delete: (input: AddonActionInput) => ipcRenderer.invoke(ipcChannels.addons.delete, input),
 		updateAll: () => ipcRenderer.invoke(ipcChannels.addons.updateAll),
 		addCustom: (input: AddCustomAddonInput) =>
 			ipcRenderer.invoke(ipcChannels.addons.addCustom, input),

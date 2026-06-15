@@ -287,6 +287,12 @@ export const addonInstallResultSchema = z.object({
 	skippedGitFolders: z.array(z.string())
 })
 
+export const addonDeleteResultSchema = z.object({
+	deletedAt: z.string(),
+	addon: addonSummarySchema,
+	deletedFolders: z.array(z.string())
+})
+
 export const addonsUpdateAllResultSchema = z.object({
 	updatedAt: z.string(),
 	total: z.number(),

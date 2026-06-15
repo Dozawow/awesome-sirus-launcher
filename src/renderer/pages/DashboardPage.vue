@@ -494,6 +494,11 @@ function selectClientPatchSource(sourceUrl: string): void {
 	notice.value = ''
 	error.value = ''
 }
+
+function updateAddonCheckResult(result: AddonsListResult): void {
+	addonCheckResult.value = result
+	notice.value = t('footer.status.addonsChecked', { total: result.total })
+}
 </script>
 
 <template>
@@ -533,7 +538,12 @@ function selectClientPatchSource(sourceUrl: string): void {
 				@create-backup="createWtfBackup"
 			/>
 
-			<AddonsPanel v-else-if="activeSection === 'addons'" />
+			<AddonsPanel
+				v-else-if="activeSection === 'addons'"
+				:addon-result="addonCheckResult"
+				:checking-external="addonChecking"
+				@checked="updateAddonCheckResult"
+			/>
 
 			<ClientCheckPanel
 				v-else-if="activeSection === 'client'"

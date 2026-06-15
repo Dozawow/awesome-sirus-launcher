@@ -40,6 +40,7 @@ export const ipcChannels = {
 		list: 'addons:list',
 		check: 'addons:check',
 		install: 'addons:install',
+		delete: 'addons:delete',
 		updateAll: 'addons:update-all',
 		addCustom: 'addons:add-custom',
 		exportCustom: 'addons:export-custom',
@@ -321,6 +322,12 @@ export interface AddonInstallResult {
 	skippedGitFolders: string[]
 }
 
+export interface AddonDeleteResult {
+	deletedAt: string
+	addon: AddonSummary
+	deletedFolders: string[]
+}
+
 export interface AddonsUpdateAllResult {
 	updatedAt: string
 	total: number
@@ -387,6 +394,7 @@ export interface LauncherApi {
 		list(): Promise<AddonsListResult>
 		check(): Promise<AddonsListResult>
 		install(input: AddonActionInput): Promise<AddonInstallResult>
+		delete(input: AddonActionInput): Promise<AddonDeleteResult>
 		updateAll(): Promise<AddonsUpdateAllResult>
 		addCustom(input: AddCustomAddonInput): Promise<AddonsListResult>
 		exportCustom(): Promise<CustomAddonsTransferResult | undefined>

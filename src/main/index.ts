@@ -25,6 +25,7 @@ import {
 	addAccountInputSchema,
 	addCustomAddonInputSchema,
 	addonActionInputSchema,
+	addonDeleteResultSchema,
 	addonInstallResultSchema,
 	addonsListResultSchema,
 	addonsUpdateAllResultSchema,
@@ -329,6 +330,13 @@ function registerIpcHandlers(): void {
 		addonActionInputSchema,
 		addonInstallResultSchema,
 		async (input) => addonService.install(input)
+	)
+
+	registerIpcHandler(
+		ipcChannels.addons.delete,
+		addonActionInputSchema,
+		addonDeleteResultSchema,
+		async (input) => addonService.delete(input)
 	)
 
 	registerIpcHandler(
