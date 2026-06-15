@@ -4,6 +4,7 @@ import type {
 	AccountListResult,
 	AddonsListResult,
 	AppInfo,
+	AppUpdateCheck,
 	ClientCheckResult,
 	ClientPatchFileInput,
 	ClientPatchManifestResult,
@@ -57,6 +58,9 @@ const sectionEyebrowKeys: Record<LauncherSection, MessageKey> = {
 }
 
 const appInfo = ref<AppInfo | null>(null)
+const appUpdateCheck = ref<AppUpdateCheck | null>(null)
+const appUpdateChecking = ref(false)
+const appUpdateInstalling = ref(false)
 const githubTokenStatus = ref<GitHubTokenStatus>({ configured: false })
 const accounts = ref<AccountListResult>({ accounts: [] })
 const settings = ref<LauncherSettings | null>(null)
@@ -115,6 +119,8 @@ const footerStatusText = computed(() => {
 	if (clientChecking.value) return t('footer.status.clientChecking')
 	if (clientManifestLoading.value) return t('footer.status.clientManifest')
 	if (fpsPatchInstalling.value) return t('footer.status.fpsPatch')
+	if (appUpdateInstalling.value) return t('footer.status.appUpdateInstalling')
+	if (appUpdateChecking.value) return t('footer.status.appUpdateChecking')
 	if (addonChecking.value) return t('footer.status.addonsChecking')
 	if (gameLaunching.value) return t('footer.status.launchingGame')
 	if (wtfBackupCreating.value) return t('footer.status.wtfBackup')
@@ -142,6 +148,7 @@ const shouldShowClientPathModal = computed(
 onMounted(async () => {
 	try {
 		appInfo.value = await launcherApi.app.getInfo()
+		void checkAppUpdate()
 		githubTokenStatus.value = await launcherApi.github.getTokenStatus()
 		accounts.value = await launcherApi.accounts.list()
 		settings.value = await launcherApi.settings.get()
@@ -201,6 +208,31 @@ async function toggleSetting(
 ): Promise<void> {
 	if (!settings.value) return
 	settings.value = await launcherApi.settings.save({ [key]: !settings.value[key] })
+}
+
+async function checkAppUpdate(): Promise<void> {
+	error.value = ''
+	appUpdateChecking.value = true
+	try {
+		appUpdateCheck.value = await launcherApi.app.checkUpdate()
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : t('appUpdate.checkError')
+	} finally {
+		appUpdateChecking.value = false
+	}
+}
+
+async function installAppUpdate(): Promise<void> {
+	error.value = ''
+	notice.value = ''
+	appUpdateInstalling.value = true
+	try {
+		const result = await launcherApi.app.installUpdate()
+		notice.value = t('appUpdate.installStarted', { version: result.version })
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : t('appUpdate.installError')
+		appUpdateInstalling.value = false
+	}
 }
 
 async function saveGitHubToken(): Promise<void> {
@@ -522,8 +554,11 @@ function updateAddonCheckResult(result: AddonsListResult): void {
 				:fps-patch-status="fpsPatchStatus"
 				:client-check-result="clientCheckResult"
 				:latest-backup="latestBackup"
+				:app-update-check="appUpdateCheck"
 				:addon-update-count="addonUpdateCount"
 				:addons-checked="Boolean(addonCheckResult)"
+				:checking-app-update="appUpdateChecking"
+				:installing-app-update="appUpdateInstalling"
 				:checking-addons="addonChecking"
 				:checking-client="clientChecking"
 				:installing-fps-patch="fpsPatchInstalling"
@@ -533,6 +568,8 @@ function updateAddonCheckResult(result: AddonsListResult): void {
 				@launch-game="launchGame"
 				@install-fps-patch="installFpsPatch"
 				@delete-fps-patch="deleteFpsPatch"
+				@check-app-update="checkAppUpdate"
+				@install-app-update="installAppUpdate"
 				@open-addons="checkAddons"
 				@check-client="checkClient"
 				@create-backup="createWtfBackup"

@@ -264,7 +264,11 @@ function getStatusTone(addon: AddonSummary): 'neutral' | 'ok' | 'warning' {
 }
 
 function canDeleteAddon(addon: AddonSummary): boolean {
-	return addon.status !== 'not-installed' && deletingAddonId.value !== addon.id
+	return (
+		addon.status !== 'not-installed' &&
+		addon.status !== 'manual-git' &&
+		deletingAddonId.value !== addon.id
+	)
 }
 </script>
 

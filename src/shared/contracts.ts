@@ -1,7 +1,8 @@
 export const ipcChannels = {
 	app: {
 		getInfo: 'app:get-info',
-		checkUpdate: 'app:check-update'
+		checkUpdate: 'app:check-update',
+		installUpdate: 'app:install-update'
 	},
 	github: {
 		getTokenStatus: 'github:get-token-status',
@@ -150,6 +151,13 @@ export interface AppUpdateCheck {
 	currentVersion: string
 	latest?: AppRelease
 	updateAvailable: boolean
+}
+
+export interface AppUpdateInstallResult {
+	installedAt: string
+	version: string
+	asset: ReleaseAsset
+	downloadedPath: string
 }
 
 export interface WtfBackupSummary {
@@ -356,6 +364,7 @@ export interface LauncherApi {
 	app: {
 		getInfo(): Promise<AppInfo>
 		checkUpdate(): Promise<AppUpdateCheck>
+		installUpdate(): Promise<AppUpdateInstallResult>
 	}
 	github: {
 		getTokenStatus(): Promise<GitHubTokenStatus>

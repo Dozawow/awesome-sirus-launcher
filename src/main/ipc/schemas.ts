@@ -28,6 +28,13 @@ export const appUpdateCheckSchema = z.object({
 	updateAvailable: z.boolean()
 })
 
+export const appUpdateInstallResultSchema = z.object({
+	installedAt: z.string(),
+	version: z.string(),
+	asset: releaseAssetSchema,
+	downloadedPath: z.string()
+})
+
 export const githubTokenStatusSchema = z.object({
 	configured: z.boolean()
 })

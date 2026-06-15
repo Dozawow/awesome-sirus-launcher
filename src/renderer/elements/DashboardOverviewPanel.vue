@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type {
+	AppUpdateCheck,
 	ClientCheckResult,
 	FpsPatchStatus,
 	WowPathValidation,
@@ -16,8 +17,11 @@ const props = defineProps<{
 	fpsPatchStatus: FpsPatchStatus | null
 	clientCheckResult: ClientCheckResult | null
 	latestBackup: WtfBackupSummary | null
+	appUpdateCheck: AppUpdateCheck | null
 	addonUpdateCount: number
 	addonsChecked: boolean
+	checkingAppUpdate: boolean
+	installingAppUpdate: boolean
 	checkingAddons: boolean
 	checkingClient: boolean
 	installingFpsPatch: boolean
@@ -30,6 +34,8 @@ defineEmits<{
 	launchGame: []
 	installFpsPatch: []
 	deleteFpsPatch: []
+	checkAppUpdate: []
+	installAppUpdate: []
 	openAddons: []
 	checkClient: []
 	createBackup: []
@@ -94,6 +100,20 @@ function formatBackupDate(backup: WtfBackupSummary | null): string {
 		hour: '2-digit',
 		minute: '2-digit'
 	}).format(new Date(backup.createdAt))
+}
+
+function appUpdateTone(): 'neutral' | 'ok' | 'warning' {
+	if (!props.appUpdateCheck) return 'neutral'
+	return props.appUpdateCheck.updateAvailable ? 'warning' : 'ok'
+}
+
+function appUpdateLabel(): string {
+	if (!props.appUpdateCheck) return t('appUpdate.unknown')
+	if (props.appUpdateCheck.updateAvailable && props.appUpdateCheck.latest) {
+		return t('appUpdate.available', { version: props.appUpdateCheck.latest.version })
+	}
+
+	return t('appUpdate.latest', { version: props.appUpdateCheck.currentVersion })
 }
 </script>
 
@@ -233,6 +253,41 @@ function formatBackupDate(backup: WtfBackupSummary | null): string {
 					<BaseButton :disabled="creatingBackup" @click="$emit('createBackup')">
 						<Archive :size="16" />
 						{{ creatingBackup ? t('backup.creating') : t('backup.create') }}
+					</BaseButton>
+				</div>
+			</div>
+
+			<div class="info-tile">
+				<span class="tile-label">{{ t('dashboard.tile.appUpdate') }}</span>
+				<strong>{{ appUpdateLabel() }}</strong>
+				<StatusBadge :tone="appUpdateTone()">
+					{{
+						appUpdateCheck?.updateAvailable
+							? t('dashboard.status.updateAvailable')
+							: appUpdateCheck
+								? t('dashboard.status.ready')
+								: t('dashboard.status.notChecked')
+					}}
+				</StatusBadge>
+				<div class="tile-actions">
+					<BaseButton
+						v-if="appUpdateCheck?.updateAvailable"
+						:disabled="installingAppUpdate"
+						@click="$emit('installAppUpdate')"
+					>
+						<Download :size="16" />
+						{{
+							installingAppUpdate ? t('appUpdate.installing') : t('appUpdate.install')
+						}}
+					</BaseButton>
+					<BaseButton
+						v-else
+						variant="secondary"
+						:disabled="checkingAppUpdate"
+						@click="$emit('checkAppUpdate')"
+					>
+						<Download :size="16" />
+						{{ checkingAppUpdate ? t('appUpdate.checking') : t('appUpdate.check') }}
 					</BaseButton>
 				</div>
 			</div>

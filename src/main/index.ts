@@ -31,6 +31,7 @@ import {
 	addonsUpdateAllResultSchema,
 	appInfoSchema,
 	appUpdateCheckSchema,
+	appUpdateInstallResultSchema,
 	clientPatchDownloadAllResultSchema,
 	clientPatchDownloadResultSchema,
 	clientPatchFileInputSchema,
@@ -98,7 +99,32 @@ const gameLaunchService = createGameLaunchService(
 	},
 	(wowPath) => accountService.applySelectedToWowConfig(wowPath)
 )
-const appUpdateService = createAppUpdateService(app.getVersion(), settingsStore, fetchJson)
+const appUpdateService = createAppUpdateService(
+	app.getVersion(),
+	settingsStore,
+	secretStore,
+	fetchJson,
+	async (url, token) => {
+		const response = await fetch(url, {
+			headers: token ? { Authorization: `Bearer ${token}` } : undefined
+		})
+		if (!response.ok) {
+			throw new Error(`Request failed ${response.status} ${response.statusText}`.trim())
+		}
+
+		return response.json()
+	},
+	downloadFile,
+	async (installerPath) => {
+		const child = spawn(installerPath, [], {
+			detached: true,
+			stdio: 'ignore',
+			windowsHide: false
+		})
+		child.unref()
+	},
+	() => app.getPath('userData')
+)
 
 function createWindow(): void {
 	const mainWindow = new BrowserWindow({
@@ -143,6 +169,17 @@ function registerIpcHandlers(): void {
 		voidInputSchema,
 		appUpdateCheckSchema,
 		async () => appUpdateService.check()
+	)
+
+	registerIpcHandler(
+		ipcChannels.app.installUpdate,
+		voidInputSchema,
+		appUpdateInstallResultSchema,
+		async () => {
+			const result = await appUpdateService.install()
+			setTimeout(() => app.quit(), 1000)
+			return result
+		}
 	)
 
 	registerIpcHandler(
