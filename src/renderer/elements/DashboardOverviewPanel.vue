@@ -70,6 +70,20 @@ function addonsLabel(): string {
 	return t('dashboard.addons.ok')
 }
 
+function fpsPatchTone(): 'neutral' | 'ok' | 'warning' {
+	if (!props.fpsPatchStatus?.installed) return 'warning'
+	if (props.fpsPatchStatus.freshness === 'latest') return 'ok'
+	if (props.fpsPatchStatus.freshness === 'outdated') return 'warning'
+	return 'neutral'
+}
+
+function fpsPatchLabel(): string {
+	if (!props.fpsPatchStatus?.installed) return t('fpsPatch.missing')
+	if (props.fpsPatchStatus.freshness === 'latest') return t('fpsPatch.latest')
+	if (props.fpsPatchStatus.freshness === 'outdated') return t('fpsPatch.outdated')
+	return t('fpsPatch.unknown')
+}
+
 function formatBackupDate(backup: WtfBackupSummary | null): string {
 	if (!backup) return t('dashboard.backup.none')
 
@@ -148,26 +162,32 @@ function formatBackupDate(backup: WtfBackupSummary | null): string {
 
 			<div class="info-tile">
 				<span class="tile-label">{{ t('dashboard.tile.fpsPatch') }}</span>
-				<strong>
+				<strong>{{ fpsPatchLabel() }}</strong>
+				<StatusBadge :tone="fpsPatchTone()">
 					{{
-						fpsPatchStatus?.installed ? t('fpsPatch.installed') : t('fpsPatch.missing')
-					}}
-				</strong>
-				<StatusBadge :tone="fpsPatchStatus?.installed ? 'ok' : 'warning'">
-					{{
-						fpsPatchStatus?.installed
+						fpsPatchStatus?.freshness === 'latest'
 							? t('dashboard.status.installed')
-							: t('dashboard.status.canInstall')
+							: fpsPatchStatus?.freshness === 'outdated'
+								? t('dashboard.status.updateAvailable')
+								: fpsPatchStatus?.installed
+									? t('dashboard.status.notChecked')
+									: t('dashboard.status.canInstall')
 					}}
 				</StatusBadge>
 				<div class="tile-actions">
 					<BaseButton
-						v-if="!fpsPatchStatus?.installed"
+						v-if="!fpsPatchStatus?.installed || fpsPatchStatus.freshness === 'outdated'"
 						:disabled="installingFpsPatch"
 						@click="$emit('installFpsPatch')"
 					>
 						<Download :size="16" />
-						{{ installingFpsPatch ? t('fpsPatch.installing') : t('fpsPatch.install') }}
+						{{
+							installingFpsPatch
+								? t('fpsPatch.installing')
+								: fpsPatchStatus?.installed
+									? t('fpsPatch.reinstall')
+									: t('fpsPatch.install')
+						}}
 					</BaseButton>
 					<BaseButton
 						v-else

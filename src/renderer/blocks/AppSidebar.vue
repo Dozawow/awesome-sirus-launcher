@@ -19,7 +19,8 @@ const navItems = [
 	{ id: 'client', label: 'nav.client' },
 	{ id: 'patch', label: 'nav.patch' },
 	{ id: 'wtf', label: 'nav.wtf' },
-	{ id: 'settings', label: 'nav.settings' }
+	{ id: 'settings', label: 'nav.settings' },
+	{ id: 'thanks', label: 'nav.thanks' }
 ] as const
 </script>
 

@@ -136,6 +136,11 @@ export const fpsPatchStatusSchema = z.object({
 	patchPath: z.string(),
 	size: z.number().optional(),
 	updatedAt: z.string().optional(),
+	freshness: z.enum(['missing', 'latest', 'outdated', 'unknown']),
+	remoteSize: z.number().optional(),
+	remoteUpdatedAt: z.string().optional(),
+	remoteSourceUrl: z.string().optional(),
+	checkError: z.string().optional(),
 	sourceUrls: z.array(z.string())
 })
 

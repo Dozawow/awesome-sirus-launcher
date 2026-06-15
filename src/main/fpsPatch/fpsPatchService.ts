@@ -1,11 +1,23 @@
 import { copyFile, mkdir, rename, rm, stat } from 'node:fs/promises'
 import type { Stats } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type { FpsPatchDeleteResult, FpsPatchInstallResult, FpsPatchStatus } from '@shared/contracts'
+import type {
+	FpsPatchDeleteResult,
+	FpsPatchFreshness,
+	FpsPatchInstallResult,
+	FpsPatchStatus
+} from '@shared/contracts'
 import { createFpsPatchInstallPlan, fpsPatchSourceUrls } from '../../core/fpsPatch/fpsPatch'
 import type { SettingsStore } from '@main/settings/fileSettingsStore'
 
 export type DownloadFile = (url: string, targetPath: string) => Promise<void>
+export type FetchFpsPatchMetadata = (url: string) => Promise<FpsPatchRemoteMetadata>
+
+export interface FpsPatchRemoteMetadata {
+	sourceUrl: string
+	size?: number
+	updatedAt?: string
+}
 
 export interface FpsPatchFileSystem {
 	copyFile(sourcePath: string, targetPath: string): Promise<void>
@@ -23,6 +35,22 @@ const defaultFileSystem: FpsPatchFileSystem = {
 	stat
 }
 
+const defaultFetchFpsPatchMetadata: FetchFpsPatchMetadata = async (url) => {
+	const response = await fetch(url, { method: 'HEAD' })
+	if (!response.ok) {
+		throw new Error(`Request failed ${response.status} ${response.statusText}`.trim())
+	}
+
+	const contentLength = response.headers.get('content-length')
+	const lastModified = response.headers.get('last-modified')
+
+	return {
+		sourceUrl: url,
+		size: contentLength ? Number.parseInt(contentLength, 10) || undefined : undefined,
+		updatedAt: lastModified ? new Date(lastModified).toISOString() : undefined
+	}
+}
+
 export interface FpsPatchService {
 	getStatus(): Promise<FpsPatchStatus>
 	install(): Promise<FpsPatchInstallResult>
@@ -33,7 +61,8 @@ export function createFpsPatchService(
 	getUserDataPath: () => string,
 	settingsStore: SettingsStore,
 	downloadFile: DownloadFile,
-	fileSystem: FpsPatchFileSystem = defaultFileSystem
+	fileSystem: FpsPatchFileSystem = defaultFileSystem,
+	fetchMetadata: FetchFpsPatchMetadata = defaultFetchFpsPatchMetadata
 ): FpsPatchService {
 	const getTempDir = () => join(getUserDataPath(), 'downloads', 'fps-patch')
 
@@ -43,7 +72,7 @@ export function createFpsPatchService(
 			if (!settings.wowPath) return createMissingStatus('')
 
 			const plan = createFpsPatchInstallPlan(settings.wowPath, getTempDir())
-			return readFpsPatchStatus(plan.targetPath, fileSystem)
+			return readFpsPatchStatus(plan.targetPath, fileSystem, fetchMetadata)
 		},
 		async install() {
 			const settings = await settingsStore.get()
@@ -64,7 +93,7 @@ export function createFpsPatchService(
 			await moveDownloadedFile(plan.tempPath, plan.targetPath, fileSystem)
 
 			return {
-				status: await readFpsPatchStatus(plan.targetPath, fileSystem),
+				status: await readFpsPatchStatus(plan.targetPath, fileSystem, fetchMetadata),
 				sourceUrl
 			}
 		},
@@ -76,7 +105,7 @@ export function createFpsPatchService(
 			await fileSystem.rm(plan.targetPath, { force: true })
 
 			return {
-				status: await readFpsPatchStatus(plan.targetPath, fileSystem),
+				status: await readFpsPatchStatus(plan.targetPath, fileSystem, fetchMetadata),
 				deleted: true
 			}
 		}
@@ -109,27 +138,81 @@ function isCrossDeviceRenameError(error: unknown): boolean {
 
 async function readFpsPatchStatus(
 	patchPath: string,
-	fileSystem: FpsPatchFileSystem
+	fileSystem: FpsPatchFileSystem,
+	fetchMetadata: FetchFpsPatchMetadata
 ): Promise<FpsPatchStatus> {
+	const remote = await readRemoteMetadata(fetchMetadata)
 	try {
 		const patchStat = await fileSystem.stat(patchPath)
+		const installed = patchStat.isFile()
+		const freshness = installed
+			? compareFpsPatchFreshness(patchStat, remote.metadata)
+			: 'missing'
 
 		return {
-			installed: patchStat.isFile(),
+			installed,
 			patchPath,
 			size: patchStat.size,
 			updatedAt: patchStat.mtime.toISOString(),
+			freshness,
+			remoteSize: remote.metadata?.size,
+			remoteUpdatedAt: remote.metadata?.updatedAt,
+			remoteSourceUrl: remote.metadata?.sourceUrl,
+			checkError: remote.error,
 			sourceUrls: [...fpsPatchSourceUrls]
 		}
 	} catch {
-		return createMissingStatus(patchPath)
+		return createMissingStatus(patchPath, remote.metadata, remote.error)
 	}
 }
 
-function createMissingStatus(patchPath: string): FpsPatchStatus {
+async function readRemoteMetadata(
+	fetchMetadata: FetchFpsPatchMetadata
+): Promise<{ metadata?: FpsPatchRemoteMetadata; error?: string }> {
+	const errors: string[] = []
+
+	for (const sourceUrl of fpsPatchSourceUrls) {
+		try {
+			return { metadata: await fetchMetadata(sourceUrl) }
+		} catch (error) {
+			errors.push(error instanceof Error ? error.message : String(error))
+		}
+	}
+
+	return {
+		error: errors.join('; ')
+	}
+}
+
+function compareFpsPatchFreshness(
+	patchStat: Stats,
+	remote?: FpsPatchRemoteMetadata
+): FpsPatchFreshness {
+	if (!remote) return 'unknown'
+	if (typeof remote.size === 'number' && remote.size !== patchStat.size) return 'outdated'
+	if (
+		remote.updatedAt &&
+		new Date(remote.updatedAt).getTime() > patchStat.mtime.getTime() + 1000
+	) {
+		return 'outdated'
+	}
+	if (typeof remote.size === 'number' || remote.updatedAt) return 'latest'
+	return 'unknown'
+}
+
+function createMissingStatus(
+	patchPath: string,
+	remote?: FpsPatchRemoteMetadata,
+	checkError?: string
+): FpsPatchStatus {
 	return {
 		installed: false,
 		patchPath,
+		freshness: 'missing',
+		remoteSize: remote?.size,
+		remoteUpdatedAt: remote?.updatedAt,
+		remoteSourceUrl: remote?.sourceUrl,
+		checkError,
 		sourceUrls: [...fpsPatchSourceUrls]
 	}
 }

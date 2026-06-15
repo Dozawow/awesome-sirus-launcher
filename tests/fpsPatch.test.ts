@@ -10,6 +10,7 @@ import {
 import {
 	createFpsPatchService,
 	type DownloadFile,
+	type FetchFpsPatchMetadata,
 	type FpsPatchFileSystem
 } from '../src/main/fpsPatch/fpsPatchService'
 import type { SettingsStore } from '../src/main/settings/fileSettingsStore'
@@ -47,7 +48,9 @@ describe('fps patch service', () => {
 		const service = createFpsPatchService(
 			() => userDataPath,
 			createMemorySettingsStore({ wowPath }),
-			downloadFile
+			downloadFile,
+			undefined,
+			createMetadataFetcher({ size: `downloaded from ${fpsPatchSourceUrls[1]}`.length })
 		)
 
 		const result = await service.install()
@@ -59,6 +62,7 @@ describe('fps patch service', () => {
 		)
 		expect(result.sourceUrl).toBe(fpsPatchSourceUrls[1])
 		expect(result.status.installed).toBe(true)
+		expect(result.status.freshness).toBe('latest')
 		expect(result.status.patchPath).toBe(targetPath)
 		await expect(stat(targetPath)).resolves.toMatchObject({ size: result.status.size })
 	})
@@ -96,7 +100,8 @@ describe('fps patch service', () => {
 			() => userDataPath,
 			createMemorySettingsStore({ wowPath }),
 			downloadFile,
-			fileSystem
+			fileSystem,
+			createMetadataFetcher({ size: 'patch bytes'.length })
 		)
 
 		const result = await service.install()
@@ -105,7 +110,57 @@ describe('fps patch service', () => {
 		expect(copiedPaths).toHaveLength(1)
 		expect(removedPaths.some((path) => path.endsWith(`${fpsPatchFileName}.tmp`))).toBe(true)
 		expect(result.status.installed).toBe(true)
+		expect(result.status.freshness).toBe('latest')
 		await expect(readFile(targetPath, 'utf8')).resolves.toBe('patch bytes')
+	})
+
+	it('marks installed fps patch as outdated when remote size differs', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'sirus-fps-patch-outdated-'))
+		const wowPath = join(root, 'wow')
+		const userDataPath = join(root, 'user-data')
+		const targetPath = join(wowPath, 'Data', 'ruRU', fpsPatchFileName)
+		await mkdir(join(wowPath, 'Data', 'ruRU'), { recursive: true })
+		await writeFile(targetPath, 'old patch bytes')
+
+		const service = createFpsPatchService(
+			() => userDataPath,
+			createMemorySettingsStore({ wowPath }),
+			async () => undefined,
+			undefined,
+			createMetadataFetcher({ size: 999 })
+		)
+
+		const status = await service.getStatus()
+
+		expect(status.installed).toBe(true)
+		expect(status.freshness).toBe('outdated')
+		expect(status.remoteSize).toBe(999)
+		expect(status.remoteSourceUrl).toBe(fpsPatchSourceUrls[0])
+	})
+
+	it('keeps installed fps patch status when remote metadata is unavailable', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'sirus-fps-patch-unknown-'))
+		const wowPath = join(root, 'wow')
+		const userDataPath = join(root, 'user-data')
+		const targetPath = join(wowPath, 'Data', 'ruRU', fpsPatchFileName)
+		await mkdir(join(wowPath, 'Data', 'ruRU'), { recursive: true })
+		await writeFile(targetPath, 'patch bytes')
+
+		const service = createFpsPatchService(
+			() => userDataPath,
+			createMemorySettingsStore({ wowPath }),
+			async () => undefined,
+			undefined,
+			async () => {
+				throw new Error('head failed')
+			}
+		)
+
+		const status = await service.getStatus()
+
+		expect(status.installed).toBe(true)
+		expect(status.freshness).toBe('unknown')
+		expect(status.checkError).toContain('head failed')
 	})
 
 	it('deletes installed fps patch and returns missing status', async () => {
@@ -119,16 +174,29 @@ describe('fps patch service', () => {
 		const service = createFpsPatchService(
 			() => userDataPath,
 			createMemorySettingsStore({ wowPath }),
-			async () => undefined
+			async () => undefined,
+			undefined,
+			createMetadataFetcher({ size: 123 })
 		)
 
 		const result = await service.delete()
 
 		expect(result.deleted).toBe(true)
 		expect(result.status.installed).toBe(false)
+		expect(result.status.freshness).toBe('missing')
 		await expect(stat(targetPath)).rejects.toThrow()
 	})
 })
+
+function createMetadataFetcher(metadata: {
+	size?: number
+	updatedAt?: string
+}): FetchFpsPatchMetadata {
+	return async (sourceUrl) => ({
+		sourceUrl,
+		...metadata
+	})
+}
 
 function createMemorySettingsStore(patch: Partial<LauncherSettings>): SettingsStore {
 	const settings: LauncherSettings = {

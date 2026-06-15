@@ -99,6 +99,10 @@ describe('ipc schemas', () => {
 			patchPath: 'F:/wow/Data/ruRU/patch-ruRU-[.mpq',
 			size: 2048,
 			updatedAt: '2026-06-14T10:20:30.000Z',
+			freshness: 'latest',
+			remoteSize: 2048,
+			remoteUpdatedAt: '2026-06-14T10:20:30.000Z',
+			remoteSourceUrl: 'https://example.test/patch.mpq',
 			sourceUrls: ['https://example.test/patch.mpq']
 		}
 

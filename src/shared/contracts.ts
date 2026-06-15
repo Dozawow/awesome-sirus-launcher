@@ -176,11 +176,18 @@ export interface DeleteWtfBackupResult {
 	deletedId: string
 }
 
+export type FpsPatchFreshness = 'missing' | 'latest' | 'outdated' | 'unknown'
+
 export interface FpsPatchStatus {
 	installed: boolean
 	patchPath: string
 	size?: number
 	updatedAt?: string
+	freshness: FpsPatchFreshness
+	remoteSize?: number
+	remoteUpdatedAt?: string
+	remoteSourceUrl?: string
+	checkError?: string
 	sourceUrls: string[]
 }
 

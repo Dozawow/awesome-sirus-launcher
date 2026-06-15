@@ -733,6 +733,80 @@ nav {
 	box-shadow: var(--glass-inset);
 }
 
+.thanks-heading-icon {
+	color: var(--ok);
+}
+
+.thanks-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 14px;
+}
+
+.thanks-card {
+	display: grid;
+	gap: 18px;
+	min-height: 260px;
+	padding: 18px;
+	border: 1px solid rgba(143, 201, 203, 0.28);
+	border-radius: 8px;
+	background:
+		linear-gradient(145deg, rgba(143, 201, 203, 0.14), rgba(247, 244, 238, 0.06)),
+		rgba(24, 26, 36, 0.24);
+	box-shadow: var(--glass-inset);
+}
+
+.thanks-card__header {
+	display: grid;
+	gap: 4px;
+}
+
+.thanks-card__header strong {
+	color: var(--text);
+	font-size: 28px;
+	line-height: 1.1;
+}
+
+.thanks-card__header span {
+	color: var(--text-muted);
+	font-size: 13px;
+	text-transform: uppercase;
+}
+
+.thanks-card__links {
+	display: grid;
+	gap: 10px;
+	align-self: end;
+}
+
+.thanks-link {
+	display: grid;
+	grid-template-columns: 22px minmax(0, 1fr) 18px;
+	align-items: center;
+	gap: 10px;
+	min-height: 46px;
+	padding: 10px 12px;
+	border: 1px solid rgba(143, 201, 203, 0.28);
+	border-radius: 6px;
+	background: rgba(143, 201, 203, 0.09);
+	color: var(--text);
+	text-decoration: none;
+}
+
+.thanks-link:hover,
+.thanks-link:focus-visible {
+	border-color: var(--warning-border);
+	background: rgba(216, 168, 91, 0.12);
+	outline: none;
+}
+
+.thanks-link span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .modal-overlay {
 	position: fixed;
 	inset: 0;
@@ -1267,6 +1341,10 @@ nav {
 	}
 
 	.tile-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.thanks-grid {
 		grid-template-columns: 1fr;
 	}
 }

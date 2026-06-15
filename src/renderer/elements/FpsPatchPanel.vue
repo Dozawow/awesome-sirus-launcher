@@ -18,6 +18,20 @@ defineEmits<{
 
 const { t } = useLocale()
 
+function statusTone(): 'neutral' | 'ok' | 'warning' {
+	if (!props.status?.installed) return 'warning'
+	if (props.status.freshness === 'latest') return 'ok'
+	if (props.status.freshness === 'outdated') return 'warning'
+	return 'neutral'
+}
+
+function statusLabel(): string {
+	if (!props.status?.installed) return t('fpsPatch.missing')
+	if (props.status.freshness === 'latest') return t('fpsPatch.latest')
+	if (props.status.freshness === 'outdated') return t('fpsPatch.outdated')
+	return t('fpsPatch.unknown')
+}
+
 function formatSize(size?: number): string {
 	if (!size) return ''
 	return t('fpsPatch.size', { size: Math.max(1, Math.round(size / 1024)) })
@@ -43,8 +57,8 @@ function formatSize(size?: number): string {
 								: t('fpsPatch.install')
 					}}
 				</BaseButton>
-				<StatusBadge :tone="status?.installed ? 'ok' : 'warning'">
-					{{ status?.installed ? t('fpsPatch.installed') : t('fpsPatch.missing') }}
+				<StatusBadge :tone="statusTone()">
+					{{ statusLabel() }}
 				</StatusBadge>
 				<BaseButton
 					v-if="status?.installed"
@@ -60,7 +74,22 @@ function formatSize(size?: number): string {
 
 		<div class="result">
 			<p v-if="status?.patchPath" class="path-text">{{ status.patchPath }}</p>
-			<p v-if="status?.size">{{ formatSize(status.size) }}</p>
+			<p v-if="status?.size">
+				{{ t('fpsPatch.localSize', { size: formatSize(status.size) }) }}
+			</p>
+			<p v-if="status?.remoteSize">
+				{{ t('fpsPatch.remoteSize', { size: formatSize(status.remoteSize) }) }}
+			</p>
+			<p v-if="status?.remoteUpdatedAt">
+				{{
+					t('fpsPatch.remoteUpdatedAt', {
+						date: new Date(status.remoteUpdatedAt).toLocaleString()
+					})
+				}}
+			</p>
+			<p v-if="status?.checkError" class="muted-text">
+				{{ t('fpsPatch.checkError') }}
+			</p>
 		</div>
 	</BasePanel>
 </template>

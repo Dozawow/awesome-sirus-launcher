@@ -26,6 +26,7 @@ import FpsPatchPanel from '@renderer/elements/FpsPatchPanel.vue'
 import GitHubTokenForm from '@renderer/elements/GitHubTokenForm.vue'
 import GitHubTokenModal from '@renderer/elements/GitHubTokenModal.vue'
 import LaunchBehaviorForm from '@renderer/elements/LaunchBehaviorForm.vue'
+import ThanksPanel from '@renderer/elements/ThanksPanel.vue'
 import WowPathForm from '@renderer/elements/WowPathForm.vue'
 import WtfBackupPanel from '@renderer/elements/WtfBackupPanel.vue'
 import { launcherApi } from '@renderer/api/launcherApi'
@@ -33,7 +34,7 @@ import { useLocale } from '@renderer/composables/useLocale'
 import { useTheme } from '@renderer/composables/useTheme'
 import type { MessageKey } from '@renderer/shared/i18n'
 
-type LauncherSection = 'dashboard' | 'addons' | 'client' | 'patch' | 'wtf' | 'settings'
+type LauncherSection = 'dashboard' | 'addons' | 'client' | 'patch' | 'wtf' | 'settings' | 'thanks'
 
 const sectionTitleKeys: Record<LauncherSection, MessageKey> = {
 	dashboard: 'section.dashboard.title',
@@ -41,7 +42,8 @@ const sectionTitleKeys: Record<LauncherSection, MessageKey> = {
 	client: 'section.client.title',
 	patch: 'section.patch.title',
 	wtf: 'section.wtf.title',
-	settings: 'section.settings.title'
+	settings: 'section.settings.title',
+	thanks: 'section.thanks.title'
 }
 
 const sectionEyebrowKeys: Record<LauncherSection, MessageKey> = {
@@ -50,7 +52,8 @@ const sectionEyebrowKeys: Record<LauncherSection, MessageKey> = {
 	client: 'section.client.eyebrow',
 	patch: 'section.patch.eyebrow',
 	wtf: 'section.wtf.eyebrow',
-	settings: 'section.settings.eyebrow'
+	settings: 'section.settings.eyebrow',
+	thanks: 'section.thanks.eyebrow'
 }
 
 const appInfo = ref<AppInfo | null>(null)
@@ -566,6 +569,8 @@ function selectClientPatchSource(sourceUrl: string): void {
 				@delete="deleteWtfBackup"
 				@open-folder="openWtfBackupFolder"
 			/>
+
+			<ThanksPanel v-else-if="activeSection === 'thanks'" />
 
 			<template v-else>
 				<WowPathForm
