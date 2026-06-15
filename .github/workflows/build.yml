@@ -14,6 +14,9 @@ on:
             - yarn.lock
             - .github/workflows/build.yml
 
+permissions:
+    contents: write
+
 jobs:
     build:
         runs-on: windows-latest
@@ -43,6 +46,42 @@ jobs:
               if: steps.scaffold.outputs.exists == 'true'
               run: npm ci
 
+            - name: Read release version
+              if: steps.scaffold.outputs.exists == 'true'
+              id: version
+              shell: pwsh
+              run: |
+                  $version = (Get-Content VERSION -Raw).Trim()
+                  $packageVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
+
+                  if ([string]::IsNullOrWhiteSpace($version)) {
+                    throw "VERSION is empty."
+                  }
+
+                  if ($version -ne $packageVersion) {
+                    throw "VERSION ($version) must match package.json version ($packageVersion)."
+                  }
+
+                  "version=$version" >> $env:GITHUB_OUTPUT
+                  "tag=v$version" >> $env:GITHUB_OUTPUT
+
+            - name: Prepare release notes
+              if: steps.scaffold.outputs.exists == 'true' && github.event_name == 'push'
+              shell: pwsh
+              run: |
+                  $version = "${{ steps.version.outputs.version }}"
+                  $changelog = Get-Content CHANGELOG.md -Raw
+                  $escapedVersion = [regex]::Escape($version)
+                  $match = [regex]::Match($changelog, "(?s)## \[$escapedVersion\][^\r\n]*(.*?)(?=\r?\n## \[|$)")
+
+                  if ($match.Success) {
+                    $notes = $match.Groups[1].Value.Trim()
+                  } else {
+                    $notes = "Release v$version"
+                  }
+
+                  Set-Content -Path release-notes.md -Value $notes -Encoding UTF8
+
             - name: Check
               if: steps.scaffold.outputs.exists == 'true'
               run: npm run check --if-present
@@ -57,7 +96,23 @@ jobs:
 
             - name: Package
               if: steps.scaffold.outputs.exists == 'true' && github.event_name == 'push'
-              run: npm run package
+              run: npm run package:win
+
+            - name: Publish GitHub release
+              if: steps.scaffold.outputs.exists == 'true' && github.event_name == 'push'
+              uses: softprops/action-gh-release@v2
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  tag_name: ${{ steps.version.outputs.tag }}
+                  name: Awesome Sirus Launcher ${{ steps.version.outputs.tag }}
+                  body_path: release-notes.md
+                  make_latest: true
+                  fail_on_unmatched_files: false
+                  files: |
+                      release/*.exe
+                      release/*.exe.blockmap
+                      release/latest.yml
 
             - name: Upload artifacts
               if: steps.scaffold.outputs.exists == 'true' && always()

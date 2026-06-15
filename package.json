@@ -67,6 +67,12 @@
 				"nsis",
 				"portable"
 			]
+		},
+		"nsis": {
+			"artifactName": "Awesome-Sirus-Launcher-Setup-${version}.${ext}"
+		},
+		"portable": {
+			"artifactName": "Awesome-Sirus-Launcher-Portable-${version}.${ext}"
 		}
 	}
 }

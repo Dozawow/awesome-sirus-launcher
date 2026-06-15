@@ -24,7 +24,8 @@ function getLauncher(): LauncherApi {
 
 export const launcherApi = {
 	app: {
-		getInfo: () => getLauncher().app.getInfo()
+		getInfo: () => getLauncher().app.getInfo(),
+		checkUpdate: () => getLauncher().app.checkUpdate()
 	},
 	github: {
 		getTokenStatus: () => getLauncher().github.getTokenStatus(),

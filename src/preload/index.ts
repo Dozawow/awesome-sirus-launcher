@@ -16,7 +16,8 @@ import { ipcChannels } from '@shared/contracts'
 
 const api: LauncherApi = {
 	app: {
-		getInfo: () => ipcRenderer.invoke(ipcChannels.app.getInfo)
+		getInfo: () => ipcRenderer.invoke(ipcChannels.app.getInfo),
+		checkUpdate: () => ipcRenderer.invoke(ipcChannels.app.checkUpdate)
 	},
 	github: {
 		getTokenStatus: () => ipcRenderer.invoke(ipcChannels.github.getTokenStatus),

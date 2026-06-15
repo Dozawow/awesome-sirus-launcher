@@ -341,6 +341,7 @@ export interface AddCustomAddonInput {
 export interface LauncherApi {
 	app: {
 		getInfo(): Promise<AppInfo>
+		checkUpdate(): Promise<AppUpdateCheck>
 	}
 	github: {
 		getTokenStatus(): Promise<GitHubTokenStatus>

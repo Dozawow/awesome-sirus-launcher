@@ -16,6 +16,7 @@ import { md5File } from '@main/files/md5File'
 import { createFpsPatchService } from '@main/fpsPatch/fpsPatchService'
 import { registerIpcHandler } from '@main/ipc/ipcHandler'
 import { createGameLaunchService } from '@main/launcher/gameLaunchService'
+import { createAppUpdateService } from '@main/updater/appUpdateService'
 import { getPreloadPath } from '@main/windowPaths'
 import {
 	accountConfigInputSchema,
@@ -28,6 +29,7 @@ import {
 	addonsListResultSchema,
 	addonsUpdateAllResultSchema,
 	appInfoSchema,
+	appUpdateCheckSchema,
 	clientPatchDownloadAllResultSchema,
 	clientPatchDownloadResultSchema,
 	clientPatchFileInputSchema,
@@ -95,6 +97,7 @@ const gameLaunchService = createGameLaunchService(
 	},
 	(wowPath) => accountService.applySelectedToWowConfig(wowPath)
 )
+const appUpdateService = createAppUpdateService(app.getVersion(), settingsStore, fetchJson)
 
 function createWindow(): void {
 	const mainWindow = new BrowserWindow({
@@ -133,6 +136,13 @@ function registerIpcHandlers(): void {
 		name: app.getName(),
 		version: app.getVersion()
 	}))
+
+	registerIpcHandler(
+		ipcChannels.app.checkUpdate,
+		voidInputSchema,
+		appUpdateCheckSchema,
+		async () => appUpdateService.check()
+	)
 
 	registerIpcHandler(
 		ipcChannels.github.getTokenStatus,

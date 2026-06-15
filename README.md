@@ -48,6 +48,19 @@ npm run build
 npm run package:dir
 ```
 
+## Релизы и обновления
+
+Релиз создается GitHub Actions при push в `main`/`master`, если меняется `VERSION`, `package.json`, lockfile или workflow. Workflow сверяет `VERSION` с `package.json`, собирает Windows artifacts и публикует GitHub Release с тегом `v<version>`.
+
+Для нового теста обновления:
+
+```bash
+npm run check
+npm run build
+```
+
+Затем подними версию в `VERSION`, `package.json` и `package-lock.json`, обнови `CHANGELOG.md`, сделай push в `main`/`master`. Лаунчер проверяет обновления через GitHub Releases.
+
 ## Agents
 
 - [Правила разработки](.agents/rules/CODING_RULES.md)

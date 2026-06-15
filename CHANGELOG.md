@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- GitHub Actions теперь создает GitHub Release по версии из `VERSION`, прикладывает Windows artifacts с предсказуемыми именами и использует заметки из `CHANGELOG.md` для обновлений через релизы.
+
 ## [1.0.0] - 2026-06-15
 
 ### Added

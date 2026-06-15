@@ -8,6 +8,26 @@ export const appInfoSchema = z.object({
 	version: z.string()
 })
 
+export const releaseAssetSchema = z.object({
+	name: z.string(),
+	downloadUrl: z.string(),
+	size: z.number().optional()
+})
+
+export const appReleaseSchema = z.object({
+	version: z.string(),
+	url: z.string(),
+	notes: z.string().optional(),
+	prerelease: z.boolean(),
+	assets: z.array(releaseAssetSchema)
+})
+
+export const appUpdateCheckSchema = z.object({
+	currentVersion: z.string(),
+	latest: appReleaseSchema.optional(),
+	updateAvailable: z.boolean()
+})
+
 export const githubTokenStatusSchema = z.object({
 	configured: z.boolean()
 })
