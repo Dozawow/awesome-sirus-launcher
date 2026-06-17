@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineProps<{
-	tone?: 'neutral' | 'ok' | 'warning'
+	tone?: 'neutral' | 'ok' | 'warning' | 'error'
 }>()
 </script>
 

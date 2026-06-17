@@ -670,6 +670,7 @@ async function refreshMiningState(): Promise<void> {
 						:installing-app-update="appUpdateInstalling"
 						:checking-addons="addonChecking"
 						:checking-client="clientChecking"
+						:updating-client="clientDownloadingAll || Boolean(clientDownloadingKey)"
 						:installing-fps-patch="fpsPatchInstalling"
 						:creating-backup="wtfBackupCreating"
 						:launching-game="gameLaunching"
@@ -681,6 +682,7 @@ async function refreshMiningState(): Promise<void> {
 						@install-app-update="installAppUpdate"
 						@open-addons="checkAddons"
 						@check-client="checkClient"
+						@update-client="downloadMissingClientFiles"
 						@create-backup="createWtfBackup"
 					/>
 

@@ -533,6 +533,14 @@ nav {
 	color: #ffd38c;
 }
 
+.status--error {
+	border-color: rgba(224, 106, 115, 0.86);
+	background:
+		linear-gradient(145deg, rgba(116, 36, 46, 0.72), rgba(24, 26, 36, 0.72)),
+		rgba(83, 30, 38, 0.82);
+	color: #ffb8bf;
+}
+
 .panel {
 	display: grid;
 	gap: 18px;
@@ -1583,7 +1591,7 @@ textarea.field {
 
 .addons-table {
 	display: grid;
-	overflow: hidden;
+	overflow: visible;
 	border: 1px solid var(--border);
 	border-radius: 8px;
 	background:
@@ -1611,7 +1619,15 @@ textarea.field {
 }
 
 .addons-table__row {
+	position: relative;
 	border-top: 1px solid var(--border);
+	outline: none;
+	transition: background 120ms ease;
+}
+
+.addons-table__row:hover,
+.addons-table__row:focus-within {
+	background: rgba(143, 201, 203, 0.08);
 }
 
 .addons-table__empty {
@@ -1640,6 +1656,61 @@ textarea.field {
 	grid-template-columns: 1fr 1fr;
 	gap: 8px;
 	min-width: 0;
+}
+
+.addon-tooltip {
+	position: absolute;
+	z-index: 20;
+	top: calc(100% - 4px);
+	left: 12px;
+	display: grid;
+	gap: 5px;
+	width: min(520px, calc(100vw - 80px));
+	max-width: calc(100% - 24px);
+	padding: 10px 12px;
+	border: 1px solid rgba(247, 244, 238, 0.24);
+	border-radius: 8px;
+	background:
+		linear-gradient(145deg, rgba(26, 31, 35, 0.96), rgba(34, 50, 53, 0.94)),
+		rgba(18, 22, 25, 0.96);
+	box-shadow:
+		0 18px 46px rgba(0, 0, 0, 0.36),
+		var(--glass-inset);
+	color: var(--text);
+	font-size: 12px;
+	line-height: 1.45;
+	opacity: 0;
+	pointer-events: none;
+	transform: translateY(-2px);
+	visibility: hidden;
+	transition:
+		opacity 80ms ease,
+		transform 80ms ease,
+		visibility 0s linear 80ms;
+}
+
+.addon-tooltip strong {
+	color: var(--text);
+	font-size: 13px;
+	line-height: 1.2;
+}
+
+.addon-tooltip span,
+.addon-tooltip small {
+	color: var(--text-muted);
+}
+
+.addon-tooltip p {
+	margin: 2px 0;
+	color: var(--text);
+}
+
+.addons-table__row:hover .addon-tooltip,
+.addons-table__row:focus-within .addon-tooltip {
+	opacity: 1;
+	transform: translateY(0);
+	visibility: visible;
+	transition-delay: 40ms, 40ms, 0s;
 }
 
 .error {

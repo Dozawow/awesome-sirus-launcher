@@ -347,7 +347,12 @@ function canDeleteAddon(addon: AddonSummary): boolean {
 				<div v-if="table.addons.length === 0" class="addons-table__empty">
 					{{ t('addons.table.empty') }}
 				</div>
-				<div v-for="addon in table.addons" :key="addon.id" class="addons-table__row">
+				<div
+					v-for="addon in table.addons"
+					:key="addon.id"
+					class="addons-table__row"
+					tabindex="0"
+				>
 					<div class="path-text">
 						<strong>{{ addon.name }}</strong>
 						<span>{{ addon.category || addon.author || addon.description }}</span>
@@ -384,6 +389,10 @@ function canDeleteAddon(addon: AddonSummary): boolean {
 									: t('addons.delete')
 							}}
 						</BaseButton>
+					</div>
+					<div class="addon-tooltip" role="tooltip">
+						<strong>{{ addon.name }}</strong>
+						<p v-if="addon.description">{{ addon.description }}</p>
 					</div>
 				</div>
 			</div>

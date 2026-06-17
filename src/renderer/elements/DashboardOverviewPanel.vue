@@ -12,6 +12,11 @@ import StatusBadge from '@renderer/components/StatusBadge.vue'
 import { useLocale } from '@renderer/composables/useLocale'
 import { Archive, Download, FolderOpen, Play, Puzzle, SearchCheck, Trash2 } from '@lucide/vue'
 
+type StatusTone = 'neutral' | 'ok' | 'warning' | 'error'
+
+const backupWarningAgeMs = 7 * 24 * 60 * 60 * 1000
+const backupErrorAgeMs = 14 * 24 * 60 * 60 * 1000
+
 const props = defineProps<{
 	wowValidation: WowPathValidation | null
 	fpsPatchStatus: FpsPatchStatus | null
@@ -24,6 +29,7 @@ const props = defineProps<{
 	installingAppUpdate: boolean
 	checkingAddons: boolean
 	checkingClient: boolean
+	updatingClient: boolean
 	installingFpsPatch: boolean
 	creatingBackup: boolean
 	launchingGame: boolean
@@ -38,12 +44,13 @@ defineEmits<{
 	installAppUpdate: []
 	openAddons: []
 	checkClient: []
+	updateClient: []
 	createBackup: []
 }>()
 
 const { t } = useLocale()
 
-function clientTone(): 'neutral' | 'ok' | 'warning' {
+function clientTone(): StatusTone {
 	if (!props.clientCheckResult) return 'neutral'
 	return props.clientCheckResult.missing === 0 && props.clientCheckResult.outdated === 0
 		? 'ok'
@@ -62,7 +69,11 @@ function clientLabel(): string {
 	})
 }
 
-function addonsTone(): 'neutral' | 'ok' | 'warning' {
+function hasClientProblems(): boolean {
+	return Boolean(props.clientCheckResult?.missing || props.clientCheckResult?.outdated)
+}
+
+function addonsTone(): StatusTone {
 	if (!props.addonsChecked) return 'neutral'
 	return props.addonUpdateCount > 0 ? 'warning' : 'ok'
 }
@@ -76,7 +87,7 @@ function addonsLabel(): string {
 	return t('dashboard.addons.ok')
 }
 
-function fpsPatchTone(): 'neutral' | 'ok' | 'warning' {
+function fpsPatchTone(): StatusTone {
 	if (!props.fpsPatchStatus?.installed) return 'warning'
 	if (props.fpsPatchStatus.freshness === 'latest') return 'ok'
 	if (props.fpsPatchStatus.freshness === 'outdated') return 'warning'
@@ -102,7 +113,33 @@ function formatBackupDate(backup: WtfBackupSummary | null): string {
 	}).format(new Date(backup.createdAt))
 }
 
-function appUpdateTone(): 'neutral' | 'ok' | 'warning' {
+function backupAgeMs(backup: WtfBackupSummary | null): number {
+	if (!backup) return 0
+
+	return Math.max(Date.now() - new Date(backup.createdAt).getTime(), 0)
+}
+
+function backupTone(): StatusTone {
+	if (!props.latestBackup) return 'warning'
+
+	const ageMs = backupAgeMs(props.latestBackup)
+	if (ageMs > backupErrorAgeMs) return 'error'
+	if (ageMs > backupWarningAgeMs) return 'warning'
+
+	return 'ok'
+}
+
+function backupStatusLabel(): string {
+	if (!props.latestBackup) return t('dashboard.status.makeBackup')
+
+	const ageMs = backupAgeMs(props.latestBackup)
+	if (ageMs > backupErrorAgeMs) return t('dashboard.status.backupVeryOld')
+	if (ageMs > backupWarningAgeMs) return t('dashboard.status.backupOld')
+
+	return t('dashboard.status.backedUp')
+}
+
+function appUpdateTone(): StatusTone {
 	if (!props.appUpdateCheck) return 'neutral'
 	return props.appUpdateCheck.updateAvailable ? 'warning' : 'ok'
 }
@@ -236,18 +273,26 @@ function appUpdateLabel(): string {
 						<SearchCheck :size="16" />
 						{{ checkingClient ? t('clientCheck.checking') : t('clientCheck.check') }}
 					</BaseButton>
+					<BaseButton
+						v-if="hasClientProblems()"
+						:disabled="checkingClient || updatingClient"
+						@click="$emit('updateClient')"
+					>
+						<Download :size="16" />
+						{{
+							updatingClient
+								? t('clientCheck.downloadingAll')
+								: t('clientCheck.updateAll')
+						}}
+					</BaseButton>
 				</div>
 			</div>
 
 			<div class="info-tile">
 				<span class="tile-label">{{ t('dashboard.tile.wtfBackup') }}</span>
 				<strong>{{ formatBackupDate(latestBackup) }}</strong>
-				<StatusBadge :tone="latestBackup ? 'ok' : 'warning'">
-					{{
-						latestBackup
-							? t('dashboard.status.backedUp')
-							: t('dashboard.status.makeBackup')
-					}}
+				<StatusBadge :tone="backupTone()">
+					{{ backupStatusLabel() }}
 				</StatusBadge>
 				<div class="tile-actions">
 					<BaseButton :disabled="creatingBackup" @click="$emit('createBackup')">

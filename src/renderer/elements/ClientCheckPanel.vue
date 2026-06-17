@@ -46,6 +46,7 @@ const tableFiles = computed(() => props.manifest?.files ?? props.result?.files ?
 const problemCount = computed(
 	() => (props.result?.files ?? []).filter((file) => file.status !== 'ok').length
 )
+const canDownloadMissing = computed(() => problemCount.value > 0)
 const checkedCount = computed(() => props.result?.files.length ?? 0)
 const totalCount = computed(() => props.manifest?.total ?? props.result?.total ?? 0)
 const sourceDisabled = computed(
@@ -150,6 +151,19 @@ function closeSourceMenu(event: FocusEvent): void {
 				</BaseButton>
 				<BaseButton :disabled="checking || !manifest" @click="$emit('check')">
 					{{ checking ? t('clientCheck.checking') : t('clientCheck.check') }}
+				</BaseButton>
+				<BaseButton
+					v-if="canDownloadMissing"
+					:disabled="
+						checking || loadingManifest || downloadingAll || Boolean(downloadingKey)
+					"
+					@click="$emit('downloadMissing')"
+				>
+					{{
+						downloadingAll
+							? t('clientCheck.downloadingAll')
+							: t('clientCheck.updateAll')
+					}}
 				</BaseButton>
 			</div>
 		</div>
