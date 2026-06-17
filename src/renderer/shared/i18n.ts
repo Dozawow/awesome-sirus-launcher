@@ -337,15 +337,15 @@ const messages = {
 		'mining.workerName': 'Worker',
 		'mining.coinSymbol': 'Монета',
 		'mining.examplesTitle': 'Примеры кошельков',
-		'mining.examplesHint': 'Кнопка подставляет адрес, монету и шаблон аргументов.',
-		'mining.example.ethNote': 'адрес для выплат ETH, не прямой GPU-майнинг Ethereum',
-		'mining.example.btcNote': 'адрес для выплат BTC, прямой майнинг обычно через ASIC',
-		'mining.example.ltcNote': 'адрес для выплат LTC, прямой майнинг обычно через ASIC',
-		'mining.example.etcNote': 'адрес ETC для пулов/майнеров с поддержкой Etchash',
+		'mining.examplesHint':
+			'Кнопка подставляет адрес, пул, монету и шаблон аргументов под XMRig, lolMiner или SRBMiner.',
+		'mining.example.xmrNote': 'Monero (Cake Wallet), CPU-майнинг через XMRig',
+		'mining.example.zecNote': 'Zcash (Cake Wallet), GPU-майнинг через lolMiner',
+		'mining.example.zanoNote': 'Zano (Cake Wallet), GPU-майнинг через SRBMiner-Multi',
 		'mining.useExample': 'Подставить',
 		'mining.arguments': 'Аргументы запуска',
 		'mining.argumentsPlaceholder':
-			'Например: --algo kawpow --server pool.example:3333 --user wallet.worker --pass x',
+			'Например: -o pool.supportxmr.com:443 -u wallet.worker -p x --tls',
 		'mining.consent':
 			'Я понимаю, что майнинг использует ресурсы GPU/CPU, электроэнергию и может нагревать компьютер. Запуск разрешаю вручную.',
 		'mining.save': 'Сохранить',
@@ -363,15 +363,15 @@ const messages = {
 		'mining.startError': 'Не удалось запустить майнер',
 		'mining.stopError': 'Не удалось остановить майнер',
 		'mining.resetError': 'Не удалось сбросить статистику майнинга',
-		'mining.guideTitle': 'Как скачать майнер и запустить на эти кошельки',
+		'mining.guideTitle': 'Как скачать XMRig и майнить Monero на этот кошелёк',
 		'mining.guideStep1':
-			'Выбери монету и пул. Для ETH/BTC/LTC чаще нужен пул с выплатой на этот адрес; прямой GPU-майнинг этих сетей может быть недоступен или невыгоден.',
+			'Создай Monero-кошелёк в Cake Wallet или Feather и скопируй основной адрес из Receive.',
 		'mining.guideStep2':
-			'Скачай майнер только с официального сайта или GitHub Releases проекта майнера. Не бери exe из случайных архивов и форумов.',
+			'Скачай XMRig только с xmrig.com или GitHub Releases проекта. Не бери exe из случайных архивов и форумов.',
 		'mining.guideStep3':
-			'Распакуй архив в отдельную папку и выбери exe-файл майнера кнопкой `Выбрать exe`.',
+			'Распакуй архив в отдельную папку и выбери xmrig.exe кнопкой `Выбрать exe`.',
 		'mining.guideStep4':
-			'Нажми пример кошелька, замени `POOL_HOST:PORT` на адрес пула и проверь строку аргументов.',
+			'Нажми пример кошелька XMR, ZEC или ZANO, при необходимости замени worker и проверь строку аргументов.',
 		'mining.guideStep5':
 			'Сохрани настройки, включи галочку согласия и запускай майнинг вручную. Перед запуском игры лаунчер остановит майнер.',
 		'mining.sourcesTitle': 'Примеры официальных источников',
@@ -382,6 +382,8 @@ const messages = {
 			'GPU-майнер для AMD/NVIDIA, смотри поддерживаемые алгоритмы в релизе',
 		'mining.source.teamredminer': 'AMD GPU-майнер, скачивание из GitHub Releases проекта',
 		'mining.source.gminer': 'GPU-майнер для NVIDIA/AMD, скачивание из GitHub Releases проекта',
+		'mining.source.srbminer':
+			'GPU-майнер для ProgPoW/RandomX и Zano, скачивание из GitHub Releases проекта',
 		'mining.guideWarning':
 			'Не запускай майнер с правами администратора без необходимости и следи за температурой GPU/CPU.',
 		'locale.label': 'Язык'
@@ -714,15 +716,15 @@ const messages = {
 		'mining.workerName': 'Worker',
 		'mining.coinSymbol': 'Coin',
 		'mining.examplesTitle': 'Wallet examples',
-		'mining.examplesHint': 'The button fills wallet, coin, and argument template.',
-		'mining.example.ethNote': 'ETH payout address, not direct Ethereum GPU mining',
-		'mining.example.btcNote': 'BTC payout address, direct mining usually requires ASIC',
-		'mining.example.ltcNote': 'LTC payout address, direct mining usually requires ASIC',
-		'mining.example.etcNote': 'ETC address for pools/miners with Etchash support',
+		'mining.examplesHint':
+			'The button fills the address, pool, coin, and argument template for XMRig, lolMiner, or SRBMiner.',
+		'mining.example.xmrNote': 'Monero (Cake Wallet), CPU mining via XMRig',
+		'mining.example.zecNote': 'Zcash (Cake Wallet), GPU mining via lolMiner',
+		'mining.example.zanoNote': 'Zano (Cake Wallet), GPU mining via SRBMiner-Multi',
 		'mining.useExample': 'Use example',
 		'mining.arguments': 'Launch arguments',
 		'mining.argumentsPlaceholder':
-			'Example: --algo kawpow --server pool.example:3333 --user wallet.worker --pass x',
+			'Example: -o pool.supportxmr.com:443 -u wallet.worker -p x --tls',
 		'mining.consent':
 			'I understand that mining uses GPU/CPU resources, electricity, and may heat the computer. I allow manual launch.',
 		'mining.save': 'Save',
@@ -740,15 +742,15 @@ const messages = {
 		'mining.startError': 'Could not start miner',
 		'mining.stopError': 'Could not stop miner',
 		'mining.resetError': 'Could not reset mining stats',
-		'mining.guideTitle': 'How to download a miner and use these wallets',
+		'mining.guideTitle': 'How to download XMRig and mine Monero to this wallet',
 		'mining.guideStep1':
-			'Choose a coin and pool. For ETH/BTC/LTC you usually need a pool that pays to this address; direct GPU mining may be unavailable or unprofitable.',
+			'Create a Monero wallet in Cake Wallet or Feather and copy the primary address from Receive.',
 		'mining.guideStep2':
-			'Download a miner only from the official website or GitHub Releases of the miner project. Avoid random exe archives and forum mirrors.',
+			'Download XMRig only from xmrig.com or the project GitHub Releases. Avoid random exe archives and forum mirrors.',
 		'mining.guideStep3':
-			'Extract the archive into a separate folder and select the miner exe with `Choose exe`.',
+			'Extract the archive into a separate folder and select xmrig.exe with `Choose exe`.',
 		'mining.guideStep4':
-			'Click a wallet example, replace `POOL_HOST:PORT` with the pool endpoint, and check the argument line.',
+			'Click the XMR, ZEC, or ZANO wallet example, adjust the worker if needed, and check the argument line.',
 		'mining.guideStep5':
 			'Save settings, accept the consent checkbox, and start mining manually. The launcher stops mining before launching the game.',
 		'mining.sourcesTitle': 'Official source examples',
@@ -759,6 +761,8 @@ const messages = {
 			'GPU miner for AMD/NVIDIA, check supported algorithms in the release notes',
 		'mining.source.teamredminer': 'AMD GPU miner, download from the project GitHub Releases',
 		'mining.source.gminer': 'NVIDIA/AMD GPU miner, download from the project GitHub Releases',
+		'mining.source.srbminer':
+			'GPU miner for ProgPoW/RandomX and Zano, download from the project GitHub Releases',
 		'mining.guideWarning':
 			'Do not run the miner as administrator unless required, and watch GPU/CPU temperatures.',
 		'locale.label': 'Language'

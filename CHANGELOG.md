@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-06-17
+
+### Changed
+
+- Во вкладке `Майнинг` вместо примеров ETH/BTC/LTC/ETC добавлены примеры кошельков Monero (XMR), Zcash (ZEC) и Zano (ZANO) с пулами и аргументами для XMRig, lolMiner и SRBMiner.
+
 ## [1.0.9] - 2026-06-17
 
 ### Added

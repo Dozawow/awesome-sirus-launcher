@@ -42,32 +42,31 @@ const coinSymbol = ref('')
 
 const walletExamples = [
 	{
-		key: 'eth',
-		label: 'ETH',
-		noteKey: 'mining.example.ethNote',
-		address: '0xCfbFB60D1e26A911FEC57933D307c4E238A596c8',
-		poolUrl: 'POOL_HOST:PORT'
+		key: 'xmr',
+		label: 'XMR',
+		noteKey: 'mining.example.xmrNote',
+		minerKind: 'xmrig',
+		address:
+			'48f8i8sFvdwbFLmAPVwkBkax5b4LH49uY3wLifmsBztqAjWoKdiQ63JTVnD6aWhnjMcdVwHjEYwmtCh5Nwjh7f6hJyXdo5G',
+		poolUrl: 'pool.supportxmr.com:443'
 	},
 	{
-		key: 'btc',
-		label: 'BTC',
-		noteKey: 'mining.example.btcNote',
-		address: 'bc1qdk0r3gsfp04mnm07jfxfpzlzly0yyucfvquj30',
-		poolUrl: 'POOL_HOST:PORT'
+		key: 'zec',
+		label: 'ZEC',
+		noteKey: 'mining.example.zecNote',
+		minerKind: 'lolminer',
+		address:
+			'u1dwguk3cdaxs5lwmn4xcu8ys83wm3ptf3pqzf46tymf0atkc347mt2nqr0sgyj80h2xzwa7eqf3v7zvg5s3guyyrpq6pmhe3pug67a9ul',
+		poolUrl: 'zec.2miners.com:1010'
 	},
 	{
-		key: 'ltc',
-		label: 'LTC',
-		noteKey: 'mining.example.ltcNote',
-		address: 'ltc1q3332dyuyw7w7z822cx305j9k3l4ujcv0djr2ag',
-		poolUrl: 'POOL_HOST:PORT'
-	},
-	{
-		key: 'etc',
-		label: 'ETC',
-		noteKey: 'mining.example.etcNote',
-		address: '0x32bB0ECE5ffc8c9e8Af55888E2cF353E79be6911',
-		poolUrl: 'POOL_HOST:PORT'
+		key: 'zano',
+		label: 'ZANO',
+		noteKey: 'mining.example.zanoNote',
+		minerKind: 'srbminer',
+		address:
+			'ZxDk76vD8k6LnK7YiAZy1o8M4bpb5wkwKZkbgAUF2eWTBpnF4v91N75iiPCCPp4EZWEhpVpxYN8iiDeUn4QdC8572NR2UH5Fn',
+		poolUrl: 'pool.woolypooly.com:3146'
 	}
 ] as const
 
@@ -101,6 +100,12 @@ const minerSources = [
 		label: 'GMiner Releases',
 		url: 'https://github.com/develsoftware/GMinerRelease/releases',
 		noteKey: 'mining.source.gminer'
+	},
+	{
+		key: 'srbminer',
+		label: 'SRBMiner-Multi Releases',
+		url: 'https://github.com/doktor83/SRBMiner-Multi/releases',
+		noteKey: 'mining.source.srbminer'
 	}
 ] as const
 
@@ -157,13 +162,29 @@ function save(): void {
 	})
 }
 
+function buildMinerArguments(
+	example: (typeof walletExamples)[number],
+	worker: string
+): string {
+	const user = `${example.address}.${worker}`
+	if (example.minerKind === 'lolminer') {
+		return `--algo EQU144_5 --pool ${example.poolUrl} --user ${user} --pass x`
+	}
+	if (example.minerKind === 'srbminer') {
+		return `--algorithm progpow_zano --pool ${example.poolUrl} --wallet ${user} --password x`
+	}
+	return `-o ${example.poolUrl} -u ${user} -p x --tls`
+}
+
 function applyWalletExample(example: (typeof walletExamples)[number]): void {
+	const worker = workerName.value.trim() || 'awesome-sirus-support'
 	walletAddress.value = example.address
 	coinSymbol.value = example.label
-	workerName.value = workerName.value || 'awesome-sirus-support'
+	workerName.value = worker
 	poolUrl.value = example.poolUrl
-	minerArguments.value = `--pool ${example.poolUrl} --user ${example.address}.${workerName.value} --pass x`
+	minerArguments.value = buildMinerArguments(example, worker)
 }
+
 </script>
 
 <template>
