@@ -23,7 +23,7 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
 
             - name: Check project scaffold
               id: scaffold
@@ -38,9 +38,14 @@ jobs:
 
             - name: Setup Node
               if: steps.scaffold.outputs.exists == 'true'
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
-                  node-version: 22
+                  node-version-file: .node-version
+                  cache: npm
+
+            - name: Enable Corepack
+              if: steps.scaffold.outputs.exists == 'true'
+              run: corepack enable
 
             - name: Install dependencies
               if: steps.scaffold.outputs.exists == 'true'
@@ -100,7 +105,7 @@ jobs:
 
             - name: Publish GitHub release
               if: steps.scaffold.outputs.exists == 'true' && github.event_name == 'push'
-              uses: softprops/action-gh-release@v2
+              uses: softprops/action-gh-release@v3
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:
@@ -116,7 +121,7 @@ jobs:
 
             - name: Upload artifacts
               if: steps.scaffold.outputs.exists == 'true' && always()
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: launcher-build
                   path: |

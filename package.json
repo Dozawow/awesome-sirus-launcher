@@ -1,6 +1,6 @@
 {
 	"name": "awesome-sirus-launcher",
-	"version": "1.0.8",
+	"version": "1.0.9",
 	"description": "Electron/Vue launcher for Sirus WoW addons, patches, backups, accounts and game launch.",
 	"author": "fxpw accidev",
 	"license": "MIT",
@@ -26,30 +26,34 @@
 		"test:watch": "vitest",
 		"format": "prettier --write .",
 		"lint:format": "prettier --check .",
-		"check": "npm run typecheck && npm test"
+		"check": "npm run typecheck && npm test",
+		"postinstall": "install-electron --no"
 	},
 	"dependencies": {
 		"@electron-toolkit/preload": "^3.0.2",
-		"@electron-toolkit/utils": "^3.0.0",
-		"@lucide/vue": "^1.18.0",
-		"vue": "^3.5.13",
+		"@electron-toolkit/utils": "^4.0.0",
+		"@lucide/vue": "^1.20.0",
+		"vue": "^3.5.38",
 		"yauzl": "^3.4.0",
 		"yazl": "^3.3.1",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"@types/node": "^20.17.10",
+		"@types/node": "^22.19.21",
 		"@types/yauzl": "^3.4.0",
 		"@types/yazl": "^3.3.1",
-		"@vitejs/plugin-vue": "^5.2.1",
-		"electron": "^39.8.5",
+		"@vitejs/plugin-vue": "^6.0.7",
+		"electron": "^42.4.1",
 		"electron-builder": "^26.15.3",
-		"electron-vite": "^3.1.0",
+		"electron-vite": "^5.0.0",
 		"prettier": "^3.8.4",
-		"typescript": "^5.7.2",
-		"vite": "^6.0.3",
-		"vitest": "^3.2.5",
-		"vue-tsc": "^2.1.10"
+		"typescript": "^5.9.3",
+		"vite": "^7.3.5",
+		"vitest": "^4.1.9",
+		"vue-tsc": "^3.3.5"
+	},
+	"overrides": {
+		"esbuild": "^0.28.1"
 	},
 	"build": {
 		"appId": "dev.fxpw.awesome-sirus-launcher",
@@ -74,5 +78,9 @@
 		"portable": {
 			"artifactName": "Awesome-Sirus-Launcher-Portable-${version}.${ext}"
 		}
+	},
+	"allowScripts": {
+		"esbuild@0.28.1": true,
+		"electron-winstaller@5.4.0": true
 	}
 }
