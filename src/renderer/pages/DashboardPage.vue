@@ -433,10 +433,18 @@ async function checkClient(): Promise<void> {
 			clientPatchManifest.value = await launcherApi.client.list({
 				sourceUrl: selectedClientPatchSourceUrl.value
 			})
+			selectedClientPatchSourceUrl.value = clientPatchManifest.value.sourceUrl
 		}
 		clientCheckResult.value = await launcherApi.client.check({
 			sourceUrl: selectedClientPatchSourceUrl.value
 		})
+		selectedClientPatchSourceUrl.value = clientCheckResult.value.sourceUrl
+		if (clientPatchManifest.value.sourceUrl !== clientCheckResult.value.sourceUrl) {
+			clientPatchManifest.value = await launcherApi.client.list({
+				sourceUrl: clientCheckResult.value.sourceUrl
+			})
+			selectedClientPatchSourceUrl.value = clientPatchManifest.value.sourceUrl
+		}
 		notice.value = t('clientCheck.checked')
 	} catch (err) {
 		const message = err instanceof Error ? err.message : t('clientCheck.error')
@@ -466,6 +474,7 @@ async function loadClientManifest(): Promise<void> {
 		clientPatchManifest.value = await launcherApi.client.list({
 			sourceUrl: selectedClientPatchSourceUrl.value
 		})
+		selectedClientPatchSourceUrl.value = clientPatchManifest.value.sourceUrl
 		notice.value = t('clientCheck.loaded')
 	} catch (err) {
 		error.value = err instanceof Error ? err.message : t('clientCheck.loadError')
@@ -486,6 +495,7 @@ async function downloadClientFile(input: ClientPatchFileInput): Promise<void> {
 		clientCheckResult.value = await launcherApi.client.check({
 			sourceUrl: selectedClientPatchSourceUrl.value
 		})
+		selectedClientPatchSourceUrl.value = clientCheckResult.value.sourceUrl
 		notice.value = t('clientCheck.downloadedFile')
 	} catch (err) {
 		error.value = err instanceof Error ? err.message : t('clientCheck.downloadError')
@@ -505,6 +515,7 @@ async function downloadMissingClientFiles(): Promise<void> {
 		clientCheckResult.value = await launcherApi.client.check({
 			sourceUrl: selectedClientPatchSourceUrl.value
 		})
+		selectedClientPatchSourceUrl.value = clientCheckResult.value.sourceUrl
 		notice.value = t('clientCheck.downloadedAll', { total: result.total })
 	} catch (err) {
 		error.value = err instanceof Error ? err.message : t('clientCheck.downloadError')

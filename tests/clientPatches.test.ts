@@ -164,6 +164,36 @@ describe('client patch service', () => {
 		expect(manifest.availableSourceUrls).toEqual([...clientPatchManifestUrls])
 	})
 
+	it('falls back from the selected manifest source to the next source', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'sirus-client-selected-fallback-'))
+		const wowPath = join(root, 'wow')
+		const selectedSourceUrl = clientPatchManifestUrls[1]
+		const fallbackSourceUrl = clientPatchManifestUrls[2]
+		const fetchCalls: string[] = []
+
+		const service = createClientPatchService(
+			createMemorySettingsStore({ wowPath }),
+			async (url) => {
+				fetchCalls.push(url)
+				if (url === selectedSourceUrl) throw new Error('selected source failed')
+
+				return {
+					patches: [createManifestFile('patch.mpq', '/Data/', 'patched')]
+				}
+			},
+			async () => '6149eaf8791547a8f87454d687a46b29',
+			async () => undefined,
+			() => root
+		)
+
+		const result = await service.check({ sourceUrl: selectedSourceUrl })
+
+		expect(fetchCalls).toEqual([selectedSourceUrl, fallbackSourceUrl])
+		expect(result.sourceUrl).toBe(fallbackSourceUrl)
+		expect(result.total).toBe(1)
+		expect(result.missing).toBe(1)
+	})
+
 	it('reuses cached md5 for unchanged files on repeated checks', async () => {
 		const root = await mkdtemp(join(tmpdir(), 'sirus-client-md5-cache-'))
 		const wowPath = join(root, 'wow')

@@ -377,34 +377,21 @@ function createPatchKey(relativePath: string, fileName: string): string {
 }
 
 async function fetchManifest(fetchJson: FetchJson, sourceUrl?: string, signal?: AbortSignal) {
-	if (sourceUrl) return fetchManifestFromSource(fetchJson, sourceUrl, signal)
-
-	return fetchManifestWithFallback(fetchJson, signal)
-}
-
-async function fetchManifestFromSource(
-	fetchJson: FetchJson,
-	sourceUrl: string,
-	signal?: AbortSignal
-) {
-	if (!clientPatchManifestUrls.includes(sourceUrl as (typeof clientPatchManifestUrls)[number])) {
+	if (sourceUrl && !isKnownManifestSource(sourceUrl)) {
 		throw new Error('Неизвестный источник manifest клиента')
 	}
 
-	throwIfClientCheckCancelled(signal)
-	const raw = await fetchJson(sourceUrl, { signal })
-	throwIfClientCheckCancelled(signal)
-
-	return {
-		sourceUrl,
-		patches: normalizeClientPatchManifest(raw)
-	}
+	return fetchManifestWithFallback(fetchJson, signal, sourceUrl)
 }
 
-async function fetchManifestWithFallback(fetchJson: FetchJson, signal?: AbortSignal) {
+async function fetchManifestWithFallback(
+	fetchJson: FetchJson,
+	signal?: AbortSignal,
+	startSourceUrl?: string
+) {
 	const errors: string[] = []
 
-	for (const sourceUrl of clientPatchManifestUrls) {
+	for (const sourceUrl of createManifestSourceOrder(startSourceUrl)) {
 		throwIfClientCheckCancelled(signal)
 		try {
 			const raw = await fetchJson(sourceUrl, { signal })
@@ -414,11 +401,30 @@ async function fetchManifestWithFallback(fetchJson: FetchJson, signal?: AbortSig
 				patches: normalizeClientPatchManifest(raw)
 			}
 		} catch (error) {
+			throwIfClientCheckCancelled(signal)
 			errors.push(error instanceof Error ? error.message : String(error))
 		}
 	}
 
 	throw new Error(`Не удалось получить manifest клиента: ${errors.join('; ')}`)
+}
+
+function createManifestSourceOrder(startSourceUrl?: string): string[] {
+	if (!startSourceUrl) return [...clientPatchManifestUrls]
+
+	const startIndex = clientPatchManifestUrls.indexOf(
+		startSourceUrl as (typeof clientPatchManifestUrls)[number]
+	)
+	if (startIndex === -1) return [...clientPatchManifestUrls]
+
+	return [
+		...clientPatchManifestUrls.slice(startIndex),
+		...clientPatchManifestUrls.slice(0, startIndex)
+	]
+}
+
+function isKnownManifestSource(sourceUrl: string): boolean {
+	return clientPatchManifestUrls.includes(sourceUrl as (typeof clientPatchManifestUrls)[number])
 }
 
 function throwIfClientCheckCancelled(signal?: AbortSignal): void {
