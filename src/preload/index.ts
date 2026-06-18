@@ -58,6 +58,7 @@ const api: LauncherApi = {
 			ipcRenderer.invoke(ipcChannels.client.list, input),
 		check: (input?: ClientPatchSourceInput) =>
 			ipcRenderer.invoke(ipcChannels.client.check, input),
+		cancelCheck: () => ipcRenderer.invoke(ipcChannels.client.cancelCheck),
 		downloadFile: (input: ClientPatchFileInput) =>
 			ipcRenderer.invoke(ipcChannels.client.downloadFile, input),
 		downloadMissing: (input?: ClientPatchSourceInput) =>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import BaseButton from '@renderer/components/BaseButton.vue'
 import { useLocale } from '@renderer/composables/useLocale'
-import { Play, Puzzle, SearchCheck } from '@lucide/vue'
+import { Play, Puzzle, SearchCheck, X } from '@lucide/vue'
 
 defineProps<{
 	checkingClient: boolean
@@ -15,6 +15,7 @@ defineProps<{
 
 defineEmits<{
 	checkClient: []
+	cancelClientCheck: []
 	checkAddons: []
 	launchGame: []
 }>()
@@ -25,9 +26,13 @@ const { t } = useLocale()
 <template>
 	<footer class="footerbar">
 		<div class="footerbar__actions">
-			<BaseButton :disabled="checkingClient" @click="$emit('checkClient')">
-				<SearchCheck :size="16" />
-				{{ checkingClient ? t('clientCheck.checking') : t('footer.checkClient') }}
+			<BaseButton
+				:variant="checkingClient ? 'danger' : 'primary'"
+				@click="checkingClient ? $emit('cancelClientCheck') : $emit('checkClient')"
+			>
+				<X v-if="checkingClient" :size="16" />
+				<SearchCheck v-else :size="16" />
+				{{ checkingClient ? t('clientCheck.stop') : t('footer.checkClient') }}
 			</BaseButton>
 			<BaseButton
 				variant="secondary"

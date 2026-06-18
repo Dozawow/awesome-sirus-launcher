@@ -36,6 +36,7 @@ export const ipcChannels = {
 	client: {
 		list: 'client:list',
 		check: 'client:check',
+		cancelCheck: 'client:cancel-check',
 		downloadFile: 'client:download-file',
 		downloadMissing: 'client:download-missing'
 	},
@@ -438,6 +439,7 @@ export interface LauncherApi {
 	client: {
 		list(input?: ClientPatchSourceInput): Promise<ClientPatchManifestResult>
 		check(input?: ClientPatchSourceInput): Promise<ClientCheckResult>
+		cancelCheck(): Promise<void>
 		downloadFile(input: ClientPatchFileInput): Promise<ClientPatchDownloadResult>
 		downloadMissing(input?: ClientPatchSourceInput): Promise<ClientPatchDownloadAllResult>
 	}

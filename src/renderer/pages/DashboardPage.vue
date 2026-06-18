@@ -439,9 +439,22 @@ async function checkClient(): Promise<void> {
 		})
 		notice.value = t('clientCheck.checked')
 	} catch (err) {
-		error.value = err instanceof Error ? err.message : t('clientCheck.error')
+		const message = err instanceof Error ? err.message : t('clientCheck.error')
+		if (message === 'Проверка клиента остановлена') notice.value = t('clientCheck.stopped')
+		else error.value = message
 	} finally {
 		clientChecking.value = false
+	}
+}
+
+async function cancelClientCheck(): Promise<void> {
+	error.value = ''
+	notice.value = ''
+	try {
+		await launcherApi.client.cancelCheck()
+		notice.value = t('clientCheck.stopping')
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : t('clientCheck.stopError')
 	}
 }
 
@@ -682,6 +695,7 @@ async function refreshMiningState(): Promise<void> {
 						@install-app-update="installAppUpdate"
 						@open-addons="checkAddons"
 						@check-client="checkClient"
+						@cancel-client-check="cancelClientCheck"
 						@update-client="downloadMissingClientFiles"
 						@create-backup="createWtfBackup"
 					/>
@@ -706,6 +720,7 @@ async function refreshMiningState(): Promise<void> {
 						@select-source="selectClientPatchSource"
 						@load="loadClientManifest"
 						@check="checkClient"
+						@cancel-check="cancelClientCheck"
 						@download-file="downloadClientFile"
 						@download-missing="downloadMissingClientFiles"
 					/>
@@ -780,6 +795,7 @@ async function refreshMiningState(): Promise<void> {
 			:status-text="footerStatusText"
 			:status-tone="footerStatusTone"
 			@check-client="checkClient"
+			@cancel-client-check="cancelClientCheck"
 			@check-addons="checkAddons"
 			@launch-game="launchGame"
 		/>

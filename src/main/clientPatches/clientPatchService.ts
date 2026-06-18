@@ -19,8 +19,8 @@ import {
 	normalizeClientPatchManifest
 } from '../../core/clientPatches/clientPatches'
 
-export type FetchJson = (url: string) => Promise<unknown>
-export type HashFile = (filePath: string) => Promise<string>
+export type FetchJson = (url: string, options?: { signal?: AbortSignal }) => Promise<unknown>
+export type HashFile = (filePath: string, options?: { signal?: AbortSignal }) => Promise<string>
 export type DownloadFile = (url: string, targetPath: string) => Promise<void>
 
 export interface ClientMd5CacheKey {
@@ -46,6 +46,7 @@ export const emptyClientMd5Cache: ClientMd5Cache = {
 export interface ClientPatchService {
 	list(input?: ClientPatchSourceInput): Promise<ClientPatchManifestResult>
 	check(input?: ClientPatchSourceInput): Promise<ClientCheckResult>
+	cancelCheck(): Promise<void>
 	downloadFile(input: ClientPatchFileInput): Promise<ClientPatchDownloadResult>
 	downloadMissing(input?: ClientPatchSourceInput): Promise<ClientPatchDownloadAllResult>
 }
@@ -58,6 +59,17 @@ export function createClientPatchService(
 	getTempRoot: () => string,
 	md5Cache: ClientMd5Cache = emptyClientMd5Cache
 ): ClientPatchService {
+	let activeCheckController: AbortController | undefined
+
+	function createCheckController(): AbortController {
+		if (activeCheckController && !activeCheckController.signal.aborted) {
+			throw new Error('Проверка клиента уже выполняется')
+		}
+
+		activeCheckController = new AbortController()
+		return activeCheckController
+	}
+
 	return {
 		async list(input) {
 			const settings = await getSettingsWithWowPath(settingsStore)
@@ -73,22 +85,35 @@ export function createClientPatchService(
 			}
 		},
 		async check(input) {
-			const settings = await getSettingsWithWowPath(settingsStore)
-			const manifest = await fetchManifest(fetchJson, input?.sourceUrl)
-			const files = await Promise.all(
-				manifest.patches.map((patch) =>
-					checkPatchFile(settings.wowPath, patch, hashFile, md5Cache)
-				)
-			)
+			const checkController = createCheckController()
+			const { signal } = checkController
 
-			return {
-				checkedAt: new Date().toISOString(),
-				sourceUrl: manifest.sourceUrl,
-				availableSourceUrls: [...clientPatchManifestUrls],
-				total: files.length,
-				...countPatchStatuses(files),
-				files
+			try {
+				const settings = await getSettingsWithWowPath(settingsStore)
+				throwIfClientCheckCancelled(signal)
+				const manifest = await fetchManifest(fetchJson, input?.sourceUrl, signal)
+				throwIfClientCheckCancelled(signal)
+				const files = await Promise.all(
+					manifest.patches.map((patch) =>
+						checkPatchFile(settings.wowPath, patch, hashFile, md5Cache, signal)
+					)
+				)
+				throwIfClientCheckCancelled(signal)
+
+				return {
+					checkedAt: new Date().toISOString(),
+					sourceUrl: manifest.sourceUrl,
+					availableSourceUrls: [...clientPatchManifestUrls],
+					total: files.length,
+					...countPatchStatuses(files),
+					files
+				}
+			} finally {
+				if (activeCheckController === checkController) activeCheckController = undefined
 			}
+		},
+		async cancelCheck() {
+			activeCheckController?.abort()
 		},
 		async downloadFile(input) {
 			const settings = await getSettingsWithWowPath(settingsStore)
@@ -176,12 +201,15 @@ async function checkPatchFile(
 	wowPath: string,
 	patch: CoreClientPatchManifestFile,
 	hashFile: HashFile,
-	md5Cache: ClientMd5Cache
+	md5Cache: ClientMd5Cache,
+	signal?: AbortSignal
 ): Promise<ClientCheckResult['files'][number]> {
+	throwIfClientCheckCancelled(signal)
 	const targetPath = createClientPatchTargetPath(wowPath, patch)
 
 	try {
 		const fileStat = await stat(targetPath)
+		throwIfClientCheckCancelled(signal)
 		const actualSize = fileStat.size
 		if (!fileStat.isFile() || actualSize !== patch.size) {
 			return {
@@ -196,7 +224,14 @@ async function checkPatchFile(
 			}
 		}
 
-		const actualMd5 = await getCachedOrCalculateMd5(targetPath, fileStat, hashFile, md5Cache)
+		const actualMd5 = await getCachedOrCalculateMd5(
+			targetPath,
+			fileStat,
+			hashFile,
+			md5Cache,
+			signal
+		)
+		throwIfClientCheckCancelled(signal)
 
 		return {
 			fileName: patch.fileName,
@@ -210,6 +245,7 @@ async function checkPatchFile(
 			status: isExpectedMd5(actualMd5, patch.md5) ? 'ok' : 'outdated'
 		}
 	} catch {
+		throwIfClientCheckCancelled(signal)
 		return {
 			fileName: patch.fileName,
 			relativePath: patch.relativePath,
@@ -273,13 +309,16 @@ async function getCachedOrCalculateMd5(
 	filePath: string,
 	fileStat: Stats,
 	hashFile: HashFile,
-	md5Cache: ClientMd5Cache
+	md5Cache: ClientMd5Cache,
+	signal?: AbortSignal
 ): Promise<string> {
+	throwIfClientCheckCancelled(signal)
 	const cacheKey = createMd5CacheKey(filePath, fileStat)
 	const cachedMd5 = await md5Cache.get(cacheKey)
 	if (cachedMd5) return cachedMd5
 
-	const actualMd5 = await hashFile(filePath)
+	const actualMd5 = await hashFile(filePath, { signal })
+	throwIfClientCheckCancelled(signal)
 	await md5Cache.set(cacheKey, actualMd5)
 
 	return actualMd5
@@ -337,18 +376,24 @@ function createPatchKey(relativePath: string, fileName: string): string {
 	return `${relativePath}\0${fileName}`
 }
 
-async function fetchManifest(fetchJson: FetchJson, sourceUrl?: string) {
-	if (sourceUrl) return fetchManifestFromSource(fetchJson, sourceUrl)
+async function fetchManifest(fetchJson: FetchJson, sourceUrl?: string, signal?: AbortSignal) {
+	if (sourceUrl) return fetchManifestFromSource(fetchJson, sourceUrl, signal)
 
-	return fetchManifestWithFallback(fetchJson)
+	return fetchManifestWithFallback(fetchJson, signal)
 }
 
-async function fetchManifestFromSource(fetchJson: FetchJson, sourceUrl: string) {
+async function fetchManifestFromSource(
+	fetchJson: FetchJson,
+	sourceUrl: string,
+	signal?: AbortSignal
+) {
 	if (!clientPatchManifestUrls.includes(sourceUrl as (typeof clientPatchManifestUrls)[number])) {
 		throw new Error('Неизвестный источник manifest клиента')
 	}
 
-	const raw = await fetchJson(sourceUrl)
+	throwIfClientCheckCancelled(signal)
+	const raw = await fetchJson(sourceUrl, { signal })
+	throwIfClientCheckCancelled(signal)
 
 	return {
 		sourceUrl,
@@ -356,12 +401,14 @@ async function fetchManifestFromSource(fetchJson: FetchJson, sourceUrl: string) 
 	}
 }
 
-async function fetchManifestWithFallback(fetchJson: FetchJson) {
+async function fetchManifestWithFallback(fetchJson: FetchJson, signal?: AbortSignal) {
 	const errors: string[] = []
 
 	for (const sourceUrl of clientPatchManifestUrls) {
+		throwIfClientCheckCancelled(signal)
 		try {
-			const raw = await fetchJson(sourceUrl)
+			const raw = await fetchJson(sourceUrl, { signal })
+			throwIfClientCheckCancelled(signal)
 			return {
 				sourceUrl,
 				patches: normalizeClientPatchManifest(raw)
@@ -372,4 +419,8 @@ async function fetchManifestWithFallback(fetchJson: FetchJson) {
 	}
 
 	throw new Error(`Не удалось получить manifest клиента: ${errors.join('; ')}`)
+}
+
+function throwIfClientCheckCancelled(signal?: AbortSignal): void {
+	if (signal?.aborted) throw new Error('Проверка клиента остановлена')
 }

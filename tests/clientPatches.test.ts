@@ -203,6 +203,44 @@ describe('client patch service', () => {
 		expect(hashCalls).toBe(2)
 	})
 
+	it('cancels a running client check', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'sirus-client-cancel-'))
+		const wowPath = join(root, 'wow')
+		await mkdir(join(wowPath, 'Data'), { recursive: true })
+		await writeFile(join(wowPath, 'Data', 'large.mpq'), 'same')
+
+		let resolveHashStarted: () => void = () => undefined
+		const hashStarted = new Promise<void>((resolve) => {
+			resolveHashStarted = resolve
+		})
+
+		const service = createClientPatchService(
+			createMemorySettingsStore({ wowPath }),
+			async () => ({
+				patches: [createManifestFile('large.mpq', '/Data/', 'same')]
+			}),
+			async (_path, options) => {
+				resolveHashStarted()
+				return new Promise((resolve, reject) => {
+					options?.signal?.addEventListener(
+						'abort',
+						() => reject(new Error('Проверка клиента остановлена')),
+						{ once: true }
+					)
+					setTimeout(() => resolve(createHash('md5').update('same').digest('hex')), 1000)
+				})
+			},
+			async () => undefined,
+			() => root
+		)
+
+		const check = service.check()
+		await hashStarted
+		await service.cancelCheck()
+
+		await expect(check).rejects.toThrow('Проверка клиента остановлена')
+	})
+
 	it('persists md5 cache entries and invalidates them by size or mtime', async () => {
 		const root = await mkdtemp(join(tmpdir(), 'sirus-client-md5-file-cache-'))
 		const cache = createFileClientMd5Cache(() => root)

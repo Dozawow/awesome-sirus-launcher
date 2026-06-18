@@ -10,7 +10,7 @@ import BaseButton from '@renderer/components/BaseButton.vue'
 import BasePanel from '@renderer/components/BasePanel.vue'
 import StatusBadge from '@renderer/components/StatusBadge.vue'
 import { useLocale } from '@renderer/composables/useLocale'
-import { Archive, Download, FolderOpen, Play, Puzzle, SearchCheck, Trash2 } from '@lucide/vue'
+import { Archive, Download, FolderOpen, Play, Puzzle, SearchCheck, Trash2, X } from '@lucide/vue'
 
 type StatusTone = 'neutral' | 'ok' | 'warning' | 'error'
 
@@ -44,6 +44,7 @@ defineEmits<{
 	installAppUpdate: []
 	openAddons: []
 	checkClient: []
+	cancelClientCheck: []
 	updateClient: []
 	createBackup: []
 }>()
@@ -269,9 +270,13 @@ function appUpdateLabel(): string {
 					}}
 				</StatusBadge>
 				<div class="tile-actions">
-					<BaseButton :disabled="checkingClient" @click="$emit('checkClient')">
-						<SearchCheck :size="16" />
-						{{ checkingClient ? t('clientCheck.checking') : t('clientCheck.check') }}
+					<BaseButton
+						:variant="checkingClient ? 'danger' : 'primary'"
+						@click="checkingClient ? $emit('cancelClientCheck') : $emit('checkClient')"
+					>
+						<X v-if="checkingClient" :size="16" />
+						<SearchCheck v-else :size="16" />
+						{{ checkingClient ? t('clientCheck.stop') : t('clientCheck.check') }}
 					</BaseButton>
 					<BaseButton
 						v-if="hasClientProblems()"

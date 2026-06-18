@@ -27,6 +27,7 @@ const emit = defineEmits<{
 	selectSource: [sourceUrl: string]
 	load: []
 	check: []
+	cancelCheck: []
 	downloadFile: [input: ClientPatchFileInput]
 	downloadMissing: []
 }>()
@@ -149,8 +150,12 @@ function closeSourceMenu(event: FocusEvent): void {
 				<BaseButton variant="secondary" :disabled="loadingManifest" @click="$emit('load')">
 					{{ loadingManifest ? t('clientCheck.loading') : t('clientCheck.load') }}
 				</BaseButton>
-				<BaseButton :disabled="checking || !manifest" @click="$emit('check')">
-					{{ checking ? t('clientCheck.checking') : t('clientCheck.check') }}
+				<BaseButton
+					:variant="checking ? 'danger' : 'primary'"
+					:disabled="!checking && !manifest"
+					@click="checking ? $emit('cancelCheck') : $emit('check')"
+				>
+					{{ checking ? t('clientCheck.stop') : t('clientCheck.check') }}
 				</BaseButton>
 				<BaseButton
 					v-if="canDownloadMissing"
