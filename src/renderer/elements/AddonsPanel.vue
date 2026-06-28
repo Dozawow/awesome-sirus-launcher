@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { ArrowDown, ArrowUp, ArrowUpDown, Trash2 } from '@lucide/vue'
 import type { AddonsListResult, AddonSummary } from '@shared/contracts'
 import { launcherApi } from '@renderer/api/launcherApi'
 import BaseButton from '@renderer/components/BaseButton.vue'
@@ -29,6 +30,26 @@ const customName = ref('')
 const customUrl = ref('')
 const notice = ref('')
 const error = ref('')
+const sortKey = ref<'name' | 'status'>('name')
+const sortDirection = ref<'asc' | 'desc'>('asc')
+const activeTooltip = ref<{
+	addonId: string
+	name: string
+	description: string
+	left: number
+	top: number
+	maxWidth: number
+	placement: 'above' | 'below'
+	anchorX?: number
+	anchorY?: number
+} | null>(null)
+const tooltipElement = ref<HTMLElement | null>(null)
+let activeTooltipRow: HTMLElement | null = null
+const tableSearch = ref<Record<string, string>>({
+	sirus: '',
+	community: '',
+	custom: ''
+})
 
 const addons = computed(() => mergeAddonLists(catalogAddons.value, checkedAddons.value))
 const communityCount = computed(
@@ -44,19 +65,19 @@ const addonTables = computed(() => [
 		key: 'sirus',
 		title: t('addons.table.sirus'),
 		total: sirusCount.value,
-		addons: addons.value.filter((addon) => addon.source === 'sirus')
+		addons: sortAddons(filterAddonsBySearch(addons.value, 'sirus'))
 	},
 	{
 		key: 'community',
 		title: t('addons.table.community'),
 		total: communityCount.value,
-		addons: addons.value.filter((addon) => addon.source === 'community')
+		addons: sortAddons(filterAddonsBySearch(addons.value, 'community'))
 	},
 	{
 		key: 'custom',
 		title: t('addons.table.custom'),
 		total: customCount.value,
-		addons: addons.value.filter((addon) => addon.source === 'custom')
+		addons: sortAddons(filterAddonsBySearch(addons.value, 'custom'))
 	}
 ])
 const isChecking = computed(() => checking.value || props.checkingExternal === true)
@@ -71,7 +92,14 @@ watch(
 )
 
 onMounted(() => {
+	window.addEventListener('resize', handleViewportChange)
+	document.addEventListener('scroll', handleViewportChange, true)
 	void loadAddons()
+})
+
+onUnmounted(() => {
+	window.removeEventListener('resize', handleViewportChange)
+	document.removeEventListener('scroll', handleViewportChange, true)
 })
 
 async function loadAddons(): Promise<void> {
@@ -225,6 +253,33 @@ function mergeAddonLists(
 	return [...merged.values()]
 }
 
+function filterAddonsBySearch(
+	allAddons: AddonSummary[],
+	source: 'sirus' | 'community' | 'custom'
+): AddonSummary[] {
+	const query = tableSearch.value[source]?.trim().toLocaleLowerCase('ru') ?? ''
+	const sourceAddons = allAddons.filter((addon) => addon.source === source)
+
+	if (!query) return sourceAddons
+
+	return sourceAddons.filter((addon) => addon.name.toLocaleLowerCase('ru').includes(query))
+}
+
+function sortAddons(addons: AddonSummary[]): AddonSummary[] {
+	const direction = sortDirection.value === 'asc' ? 1 : -1
+
+	return [...addons].sort((left, right) => {
+		if (sortKey.value === 'status') {
+			const statusCompare =
+				compareStatusBuckets(left, right) * direction ||
+				left.name.localeCompare(right.name, 'ru') * direction
+			return statusCompare
+		}
+
+		return left.name.localeCompare(right.name, 'ru') * direction
+	})
+}
+
 async function ensureCatalogLoaded(): Promise<void> {
 	if (catalogAddons.value.length > 0) return
 
@@ -263,17 +318,161 @@ function getStatusTone(addon: AddonSummary): 'neutral' | 'ok' | 'warning' {
 	return 'neutral'
 }
 
+function isInstalledStatus(addon: AddonSummary): boolean {
+	return addon.status !== 'not-installed'
+}
+
+function compareStatusBuckets(left: AddonSummary, right: AddonSummary): number {
+	return Number(isInstalledStatus(right)) - Number(isInstalledStatus(left))
+}
+
 function canDeleteAddon(addon: AddonSummary): boolean {
 	return (
-		addon.status !== 'not-installed' &&
-		addon.status !== 'manual-git' &&
+		(addon.status === 'installed' || addon.status === 'outdated') &&
 		deletingAddonId.value !== addon.id
 	)
+}
+
+function getInstallActionLabel(addon: AddonSummary): string {
+	if (updatingAddonId.value === addon.id) return t('addons.installing')
+	if (addon.status === 'installed') return t('addons.reinstall')
+	return t('addons.install')
+}
+
+function toggleSort(nextKey: 'name' | 'status'): void {
+	if (sortKey.value === nextKey) {
+		sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+		return
+	}
+
+	sortKey.value = nextKey
+	sortDirection.value = 'asc'
+}
+
+function getSortButtonTitle(key: 'name' | 'status'): string {
+	if (key === 'name') {
+		return sortKey.value === key && sortDirection.value === 'desc'
+			? t('addons.sort.nameDesc')
+			: t('addons.sort.nameAsc')
+	}
+
+	return sortKey.value === key && sortDirection.value === 'desc'
+		? t('addons.sort.statusDesc')
+		: t('addons.sort.statusAsc')
+}
+
+function getSortAria(key: 'name' | 'status'): 'ascending' | 'descending' | 'none' {
+	if (sortKey.value !== key) return 'none'
+	return sortDirection.value === 'asc' ? 'ascending' : 'descending'
+}
+
+function getTableSearchValue(key: string): string {
+	return tableSearch.value[key] ?? ''
+}
+
+function setTableSearchValue(key: string, value: string): void {
+	tableSearch.value = {
+		...tableSearch.value,
+		[key]: value
+	}
+}
+
+function getTableSearchPlaceholder(title: string): string {
+	return `${title} (${t('addons.search.short')})`
+}
+
+async function showTooltip(addon: AddonSummary, event: MouseEvent | FocusEvent): Promise<void> {
+	const row = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+	if (!row) return
+
+	const pointerEvent = event instanceof MouseEvent ? event : null
+	activeTooltipRow = row
+	activeTooltip.value = {
+		addonId: addon.id,
+		name: addon.name,
+		description: addon.description ?? '',
+		left: 0,
+		top: 0,
+		maxWidth: Math.max(280, window.innerWidth - 32),
+		placement: 'below',
+		anchorX: pointerEvent?.clientX,
+		anchorY: pointerEvent?.clientY
+	}
+	await positionTooltip()
+}
+
+async function positionTooltip(): Promise<void> {
+	const tooltip = activeTooltip.value
+	const row = activeTooltipRow
+	if (!tooltip || !row) return
+
+	await nextTick()
+
+	const tooltipNode = tooltipElement.value
+	if (!tooltipNode) return
+
+	const rowRect = row.getBoundingClientRect()
+	const tooltipRect = tooltipNode.getBoundingClientRect()
+	const gap = 10
+	const viewportPadding = 12
+	const anchorX = tooltip.anchorX ?? rowRect.left + 12
+	const anchorY = tooltip.anchorY ?? rowRect.top + rowRect.height / 2
+	const spaceBelow = window.innerHeight - anchorY - viewportPadding
+	const spaceAbove = anchorY - viewportPadding
+	const placeAbove = spaceBelow < tooltipRect.height + gap && spaceAbove > spaceBelow
+	const maxWidth = Math.min(520, Math.max(280, window.innerWidth - viewportPadding * 2))
+	const unclampedLeft = anchorX + 14
+	const left = Math.min(
+		Math.max(viewportPadding, unclampedLeft),
+		window.innerWidth - tooltipRect.width - viewportPadding
+	)
+	const top = placeAbove
+		? Math.max(viewportPadding, anchorY - tooltipRect.height - gap)
+		: Math.min(window.innerHeight - tooltipRect.height - viewportPadding, anchorY + gap)
+
+	activeTooltip.value = {
+		...tooltip,
+		left,
+		top,
+		maxWidth,
+		placement: placeAbove ? 'above' : 'below'
+	}
+}
+
+function handleTooltipMouseMove(addon: AddonSummary, event: MouseEvent): void {
+	if (activeTooltip.value?.addonId !== addon.id) {
+		void showTooltip(addon, event)
+		return
+	}
+
+	activeTooltip.value = {
+		...activeTooltip.value,
+		anchorX: event.clientX,
+		anchorY: event.clientY
+	}
+	void positionTooltip()
+}
+
+function hideTooltip(addonId?: string): void {
+	if (addonId && activeTooltip.value?.addonId !== addonId) return
+	activeTooltipRow = null
+	activeTooltip.value = null
+}
+
+function handleViewportChange(): void {
+	if (!activeTooltip.value || !activeTooltipRow) return
+	void positionTooltip()
+}
+
+function handleRowContextMenu(addonId: string, event: MouseEvent): void {
+	hideTooltip(addonId)
+	const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+	target?.blur()
 }
 </script>
 
 <template>
-	<BasePanel>
+	<BasePanel class="addons-panel">
 		<div class="panel-heading">
 			<div>
 				<h3>{{ t('addons.title') }}</h3>
@@ -334,15 +533,63 @@ function canDeleteAddon(addon: AddonSummary): boolean {
 
 		<section v-for="table in addonTables" :key="table.key" class="addon-table-section">
 			<div class="addon-table-section__heading">
-				<h4>{{ table.title }}</h4>
+				<div class="addon-table-section__heading-main">
+					<div class="addon-table-section__search">
+						<TextField
+							:model-value="getTableSearchValue(table.key)"
+							:placeholder="getTableSearchPlaceholder(table.title)"
+							@update:model-value="setTableSearchValue(table.key, $event)"
+						/>
+					</div>
+				</div>
 				<StatusBadge tone="neutral">{{ table.total }}</StatusBadge>
 			</div>
 			<div class="addons-table">
 				<div class="addons-table__head">
-					<span>{{ t('addons.table.name') }}</span>
-					<span>{{ t('addons.table.version') }}</span>
-					<span>{{ t('addons.table.status') }}</span>
-					<span>{{ t('addons.table.action') }}</span>
+					<div class="addons-table__head-cell addons-table__head-cell--sortable">
+						<span>{{ t('addons.table.name') }}</span>
+						<button
+							type="button"
+							class="addons-table__sort-button"
+							:title="getSortButtonTitle('name')"
+							:aria-label="getSortButtonTitle('name')"
+							:aria-sort="getSortAria('name')"
+							@click="toggleSort('name')"
+						>
+							<ArrowUp
+								v-if="sortKey === 'name' && sortDirection === 'asc'"
+								:size="14"
+							/>
+							<ArrowDown
+								v-else-if="sortKey === 'name' && sortDirection === 'desc'"
+								:size="14"
+							/>
+							<ArrowUpDown v-else :size="14" />
+						</button>
+					</div>
+					<span class="addons-table__head-cell">{{ t('addons.table.version') }}</span>
+					<div class="addons-table__head-cell addons-table__head-cell--sortable">
+						<span>{{ t('addons.table.status') }}</span>
+						<button
+							type="button"
+							class="addons-table__sort-button"
+							:title="getSortButtonTitle('status')"
+							:aria-label="getSortButtonTitle('status')"
+							:aria-sort="getSortAria('status')"
+							@click="toggleSort('status')"
+						>
+							<ArrowUpDown
+								v-if="sortKey !== 'status'"
+								:size="14"
+							/>
+							<ArrowDown
+								v-else-if="sortDirection === 'asc'"
+								:size="14"
+							/>
+							<ArrowUp v-else :size="14" />
+						</button>
+					</div>
+					<span class="addons-table__head-cell">{{ t('addons.table.action') }}</span>
 				</div>
 				<div v-if="table.addons.length === 0" class="addons-table__empty">
 					{{ t('addons.table.empty') }}
@@ -352,6 +599,12 @@ function canDeleteAddon(addon: AddonSummary): boolean {
 					:key="addon.id"
 					class="addons-table__row"
 					tabindex="0"
+					@mouseenter="showTooltip(addon, $event)"
+					@mousemove="handleTooltipMouseMove(addon, $event)"
+					@focusin="showTooltip(addon, $event)"
+					@mouseleave="hideTooltip(addon.id)"
+					@focusout="hideTooltip(addon.id)"
+					@contextmenu="handleRowContextMenu(addon.id, $event)"
 				>
 					<div class="path-text">
 						<strong>{{ addon.name }}</strong>
@@ -372,32 +625,41 @@ function canDeleteAddon(addon: AddonSummary): boolean {
 							"
 							@click="installAddon(addon)"
 						>
-							{{
-								updatingAddonId === addon.id
-									? t('addons.installing')
-									: t('addons.install')
-							}}
+							{{ getInstallActionLabel(addon) }}
 						</BaseButton>
 						<BaseButton
+							v-if="canDeleteAddon(addon)"
+							class="addon-delete-button"
 							variant="danger"
-							:disabled="!canDeleteAddon(addon)"
+							:title="t('addons.delete')"
+							:aria-label="t('addons.delete')"
 							@click="requestDeleteAddon(addon)"
 						>
-							{{
-								deletingAddonId === addon.id
-									? t('addons.deleting')
-									: t('addons.delete')
-							}}
+							<Trash2 :size="18" />
 						</BaseButton>
-					</div>
-					<div class="addon-tooltip" role="tooltip">
-						<strong>{{ addon.name }}</strong>
-						<p v-if="addon.description">{{ addon.description }}</p>
 					</div>
 				</div>
 			</div>
 		</section>
 	</BasePanel>
+
+	<Teleport to="body">
+		<div
+			v-if="activeTooltip"
+			ref="tooltipElement"
+			class="addon-tooltip addon-tooltip--visible"
+			:class="{ 'addon-tooltip--above': activeTooltip.placement === 'above' }"
+			:style="{
+				left: `${activeTooltip.left}px`,
+				top: `${activeTooltip.top}px`,
+				maxWidth: `${activeTooltip.maxWidth}px`
+			}"
+			role="tooltip"
+		>
+			<strong>{{ activeTooltip.name }}</strong>
+			<p v-if="activeTooltip.description">{{ activeTooltip.description }}</p>
+		</div>
+	</Teleport>
 
 	<div v-if="addonPendingDelete" class="modal-overlay">
 		<section class="modal-shell" role="dialog" aria-modal="true">

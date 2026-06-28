@@ -9,13 +9,7 @@ defineProps<{
 }>()
 
 defineEmits<{
-	toggle: [
-		key:
-			| 'closeOnLaunch'
-			| 'checkClientBeforeLaunch'
-			| 'autoUpdateAddons'
-			| 'allowPrereleaseUpdates'
-	]
+	toggle: [key: 'closeOnLaunch' | 'checkClientBeforeLaunch' | 'autoUpdateAddons']
 }>()
 
 const { t } = useLocale()
@@ -42,11 +36,6 @@ const { t } = useLocale()
 			:checked="settings.closeOnLaunch"
 			:label="t('launch.closeOnLaunch')"
 			@toggle="$emit('toggle', 'closeOnLaunch')"
-		/>
-		<ToggleField
-			:checked="settings.allowPrereleaseUpdates"
-			:label="t('launch.prereleaseUpdates')"
-			@toggle="$emit('toggle', 'allowPrereleaseUpdates')"
 		/>
 	</BasePanel>
 </template>

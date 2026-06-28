@@ -585,6 +585,10 @@ nav {
 	box-shadow: var(--shadow), var(--glass-inset);
 }
 
+.addons-panel {
+	overflow: visible;
+}
+
 .footerbar {
 	grid-area: footer;
 	position: relative;
@@ -1614,13 +1618,24 @@ textarea.field {
 	gap: 12px;
 }
 
-.addon-table-section__heading h4 {
-	margin: 0;
-	color: var(--text);
-	font-size: 16px;
+.addon-table-section__heading-main {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
+.addon-table-section__search {
+	width: 100%;
+	min-width: 0;
+}
+
+.addon-table-section__search .field {
+	width: 100%;
 }
 
 .addons-table {
+	--addons-table-columns: minmax(240px, 1fr) 150px 150px minmax(260px, 300px);
 	display: grid;
 	overflow: visible;
 	border: 1px solid var(--border);
@@ -1635,7 +1650,7 @@ textarea.field {
 .addons-table__head,
 .addons-table__row {
 	display: grid;
-	grid-template-columns: minmax(240px, 1fr) 150px 150px 220px;
+	grid-template-columns: var(--addons-table-columns);
 	align-items: center;
 	gap: 12px;
 	min-width: 0;
@@ -1643,10 +1658,62 @@ textarea.field {
 }
 
 .addons-table__head {
+	position: sticky;
+	top: 0;
+	z-index: 12;
 	color: var(--text-muted);
 	font-size: 12px;
 	font-weight: 700;
 	text-transform: uppercase;
+	border-bottom: 1px solid rgba(247, 244, 238, 0.14);
+	border-radius: 8px 8px 0 0;
+	background:
+		linear-gradient(145deg, rgba(70, 77, 89, 0.96), rgba(92, 103, 118, 0.94)),
+		rgba(70, 77, 89, 0.94);
+	background-clip: padding-box;
+	backdrop-filter: blur(30px) saturate(180%);
+	box-shadow: 0 10px 24px rgba(6, 10, 18, 0.18);
+}
+
+.addons-table__head-cell {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.addons-table__head-cell--sortable {
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.addons-table__head-cell--sortable span {
+	min-width: 0;
+}
+
+.addons-table__sort-button {
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	appearance: none;
+	-webkit-appearance: none;
+	font: inherit;
+	border: 0;
+	opacity: 0.76;
+}
+
+.addons-table__sort-button:hover,
+.addons-table__sort-button:focus-visible {
+	color: var(--text);
+	outline: none;
+	opacity: 1;
+	transform: translateY(-1px);
 }
 
 .addons-table__row {
@@ -1684,20 +1751,26 @@ textarea.field {
 
 .addon-actions {
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	grid-template-columns: minmax(0, 1fr) auto;
 	gap: 8px;
 	min-width: 0;
 }
 
+.addon-actions .button {
+	min-width: 0;
+}
+
+.addon-delete-button {
+	width: 42px;
+	min-width: 42px;
+	padding: 0;
+}
+
 .addon-tooltip {
-	position: absolute;
-	z-index: 20;
-	top: calc(100% - 4px);
-	left: 12px;
+	position: fixed;
+	z-index: 2000;
 	display: grid;
 	gap: 5px;
-	width: min(520px, calc(100vw - 80px));
-	max-width: calc(100% - 24px);
 	padding: 10px 12px;
 	border: 1px solid rgba(247, 244, 238, 0.24);
 	border-radius: 8px;
@@ -1712,12 +1785,16 @@ textarea.field {
 	line-height: 1.45;
 	opacity: 0;
 	pointer-events: none;
-	transform: translateY(-2px);
+	transform: translateY(4px);
 	visibility: hidden;
 	transition:
-		opacity 80ms ease,
-		transform 80ms ease,
-		visibility 0s linear 80ms;
+		opacity 120ms ease,
+		transform 120ms ease,
+		visibility 0s linear 120ms;
+}
+
+.addon-tooltip--above {
+	transform: translateY(-4px);
 }
 
 .addon-tooltip strong {
@@ -1736,8 +1813,7 @@ textarea.field {
 	color: var(--text);
 }
 
-.addons-table__row:hover .addon-tooltip,
-.addons-table__row:focus-within .addon-tooltip {
+.addon-tooltip--visible {
 	opacity: 1;
 	transform: translateY(0);
 	visibility: visible;

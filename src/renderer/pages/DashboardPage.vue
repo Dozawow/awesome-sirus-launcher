@@ -175,7 +175,9 @@ onMounted(async () => {
 		if (wowPath.value) {
 			await validateWowPath()
 			if (wowValidation.value?.valid) {
-				await checkClient()
+				if (settings.value.checkClientBeforeLaunch) {
+					await checkClient()
+				}
 				await scanAddonsOnStartup()
 			}
 		}
